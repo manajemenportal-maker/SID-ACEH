@@ -1,279 +1,679 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>SID Cetak Sawah Aceh | Sistem Interaktif</title>
-  <meta name="description" content="Konsep sistem interaktif SID Cetak Sawah Aceh: penilaian kabupaten, CPCL, survei, desain teknis, RAB, peta Aceh asli, dan proses dokumen lingkungan." />
-  <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-  <style>
-    :root{
-      --bg:#06140d;--bg2:#0d2418;--card:rgba(255,255,255,.075);--card2:rgba(255,255,255,.12);--line:rgba(255,255,255,.16);
-      --text:#f5fff8;--muted:#b9d8c5;--green:#31d07d;--lime:#a9f04b;--yellow:#ffd15c;--orange:#ff9a3d;--red:#ff5c5c;--cyan:#59d8ff;
-      --shadow:0 22px 70px rgba(0,0,0,.38);--radius:24px
+<!-- MODUL LOGIN ADMIN & USER FIREBASE - SID CETAK SAWAH
+  Versi ini TIDAK memakai localStorage untuk akun.
+  Sistem memakai:
+  1. Firebase Authentication untuk login email/password.
+  2. Cloud Firestore collection `users` untuk role, status akun, kabupaten tugas, dan hak akses.
+  3. User TIDAK bisa daftar mandiri.
+  4. Admin membuat user dari Admin Panel.
+
+  PENTING:
+  - Jangan menimpa seluruh aplikasi utama dengan modul ini.
+  - Tempel bagian ini ke area login/admin pada coding utama.
+  - Gunakan firebaseConfig yang sudah ada di aplikasi utama.
+-->
+
+<section id="auth-screen" class="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">
+      <div class="auth-logo">SID</div>
+      <div>
+        <h1>Masuk Sistem</h1>
+        <p>SID Cetak Sawah Aceh</p>
+      </div>
+    </div>
+
+    <div class="auth-alert" id="authAlert">
+      User tidak dapat daftar mandiri. Akun hanya dibuat dan diaktifkan oleh Admin.
+    </div>
+
+    <div class="auth-grid">
+      <div class="auth-field">
+        <label>Email</label>
+        <input id="loginEmail" type="email" placeholder="contoh: admin@domain.com" autocomplete="username" />
+      </div>
+      <div class="auth-field">
+        <label>Password</label>
+        <input id="loginPassword" type="password" placeholder="Masukkan password" autocomplete="current-password" />
+      </div>
+    </div>
+
+    <button class="auth-btn primary" id="loginBtn">Masuk</button>
+
+    <div class="auth-note">
+      Tidak ada tombol daftar. Akun user dibuat oleh Admin melalui menu Admin Panel dan disimpan di Firebase.
+    </div>
+  </div>
+</section>
+
+<div id="app-shell" class="app-shell-hidden">
+  <header class="topbar">
+    <div>
+      <strong id="currentUserName">-</strong>
+      <span id="currentUserRole">-</span>
+    </div>
+    <div class="topbar-actions">
+      <button class="auth-btn" id="adminPanelBtn">Admin Panel</button>
+      <button class="auth-btn danger" id="logoutBtn">Keluar</button>
+    </div>
+  </header>
+
+  <section id="admin-panel" class="admin-panel hidden">
+    <div class="panel-head">
+      <div>
+        <h2>Admin Panel - Daftarkan User</h2>
+        <p>Hanya admin aktif yang bisa membuat, mengaktifkan, menonaktifkan, dan mengatur role user.</p>
+      </div>
+      <button class="auth-btn" id="closeAdminPanelBtn">Tutup</button>
+    </div>
+
+    <div class="admin-form">
+      <div class="auth-field">
+        <label>Nama User</label>
+        <input id="newUserName" placeholder="Nama lengkap petugas/user" />
+      </div>
+      <div class="auth-field">
+        <label>Email User</label>
+        <input id="newUserEmail" type="email" placeholder="contoh: petugas.pidie@domain.com" />
+      </div>
+      <div class="auth-field">
+        <label>Password Awal</label>
+        <input id="newUserPassword" type="password" placeholder="Minimal 6 karakter" />
+      </div>
+      <div class="auth-field">
+        <label>Role</label>
+        <select id="newUserRole">
+          <option value="ppk">PPK / Satker</option>
+          <option value="dinas_provinsi">Dinas Provinsi</option>
+          <option value="dinas_kabupaten">Dinas Kabupaten</option>
+          <option value="konsultan_sid">Konsultan SID</option>
+          <option value="pelaksana">Pelaksana Fisik</option>
+          <option value="pengawas">Pengawas</option>
+          <option value="lingkungan">Tim Lingkungan</option>
+          <option value="viewer">Viewer / Pimpinan</option>
+          <option value="admin">Admin</option>
+        </select>
+      </div>
+      <div class="auth-field">
+        <label>Kabupaten/Kota Tugas</label>
+        <select id="newUserKabupaten">
+          <option value="all">Semua Aceh</option>
+          <option>Aceh Barat</option>
+          <option>Aceh Barat Daya</option>
+          <option>Aceh Besar</option>
+          <option>Aceh Jaya</option>
+          <option>Aceh Selatan</option>
+          <option>Aceh Singkil</option>
+          <option>Aceh Tamiang</option>
+          <option>Aceh Tengah</option>
+          <option>Aceh Tenggara</option>
+          <option>Aceh Timur</option>
+          <option>Aceh Utara</option>
+          <option>Banda Aceh</option>
+          <option>Bener Meriah</option>
+          <option>Bireuen</option>
+          <option>Gayo Lues</option>
+          <option>Langsa</option>
+          <option>Lhokseumawe</option>
+          <option>Nagan Raya</option>
+          <option>Pidie</option>
+          <option>Pidie Jaya</option>
+          <option>Sabang</option>
+          <option>Simeulue</option>
+          <option>Subulussalam</option>
+        </select>
+      </div>
+      <div class="auth-field">
+        <label>Status Akun</label>
+        <select id="newUserStatus">
+          <option value="active">Aktif</option>
+          <option value="inactive">Nonaktif</option>
+        </select>
+      </div>
+    </div>
+
+    <div class="admin-actions">
+      <button class="auth-btn primary" id="createUserBtn">Buat User di Firebase</button>
+      <button class="auth-btn" id="resetUserBtn">Reset Form</button>
+    </div>
+
+    <div class="user-table-wrap">
+      <table class="user-table">
+        <thead>
+          <tr>
+            <th>Nama</th>
+            <th>Email</th>
+            <th>Role</th>
+            <th>Kabupaten</th>
+            <th>Status</th>
+            <th>Dibuat</th>
+            <th>Aksi</th>
+          </tr>
+        </thead>
+        <tbody id="userTableBody"></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="role-info">
+    <h2>Hak Akses Aktif</h2>
+    <div id="roleAccessBox"></div>
+  </section>
+</div>
+
+<style>
+  .auth-screen {
+    min-height: 100vh;
+    display: grid;
+    place-items: center;
+    background:
+      radial-gradient(circle at 20% 10%, rgba(49,208,125,.22), transparent 28%),
+      linear-gradient(135deg, #04100b, #102615);
+    color: #f5fff8;
+    padding: 24px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .auth-card {
+    width: min(520px, 100%);
+    background: rgba(255,255,255,.09);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 28px;
+    padding: 26px;
+    box-shadow: 0 22px 70px rgba(0,0,0,.38);
+  }
+  .auth-brand {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 18px;
+  }
+  .auth-logo {
+    width: 52px;
+    height: 52px;
+    border-radius: 18px;
+    display: grid;
+    place-items: center;
+    background: linear-gradient(135deg, #31d07d, #a9f04b);
+    color: #062010;
+    font-weight: 950;
+  }
+  .auth-brand h1 {
+    margin: 0;
+    font-size: 28px;
+    letter-spacing: -.04em;
+  }
+  .auth-brand p, .auth-note, .role-info p {
+    margin: 4px 0 0;
+    color: #b9d8c5;
+  }
+  .auth-alert {
+    padding: 13px;
+    border-radius: 16px;
+    background: rgba(255,209,92,.12);
+    border: 1px solid rgba(255,209,92,.34);
+    color: #ffe6a3;
+    margin-bottom: 16px;
+    line-height: 1.45;
+  }
+  .auth-grid, .admin-form {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 12px;
+  }
+  .admin-form { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .auth-field { display: flex; flex-direction: column; gap: 7px; }
+  .auth-field label { color: #d8ffe5; font-size: 13px; font-weight: 850; }
+  .auth-field input, .auth-field select {
+    width: 100%;
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(2,10,7,.42);
+    color: #f5fff8;
+    border-radius: 14px;
+    padding: 12px 13px;
+    outline: none;
+    font: inherit;
+  }
+  .auth-btn {
+    border: 1px solid rgba(255,255,255,.18);
+    background: rgba(255,255,255,.08);
+    color: #f5fff8;
+    border-radius: 14px;
+    padding: 12px 15px;
+    cursor: pointer;
+    font-weight: 850;
+  }
+  .auth-btn.primary {
+    margin-top: 14px;
+    background: linear-gradient(135deg, #31d07d, #a9f04b);
+    color: #05210f;
+    border-color: transparent;
+  }
+  #loginBtn, #createUserBtn { width: 100%; }
+  .auth-btn.danger { background: rgba(255,92,92,.14); border-color: rgba(255,92,92,.34); color: #ffd0d0; }
+  .auth-btn[disabled] { opacity: .55; cursor: not-allowed; }
+  .auth-note { margin-top: 14px; font-size: 13px; line-height: 1.5; }
+  .app-shell-hidden { display: none; }
+  .app-shell-visible {
+    display: block;
+    min-height: 100vh;
+    background: #06140d;
+    color: #f5fff8;
+    padding: 18px;
+    font-family: Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  }
+  .topbar, .admin-panel, .role-info {
+    width: min(1180px, 100%);
+    margin: 0 auto 16px;
+    background: rgba(255,255,255,.075);
+    border: 1px solid rgba(255,255,255,.16);
+    border-radius: 22px;
+    padding: 16px;
+  }
+  .topbar { display: flex; justify-content: space-between; align-items: center; gap: 12px; }
+  .topbar span { display: block; color: #b9d8c5; font-size: 13px; margin-top: 3px; }
+  .topbar-actions, .admin-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+  .hidden { display: none; }
+  .panel-head { display: flex; justify-content: space-between; gap: 16px; align-items: start; margin-bottom: 16px; }
+  .panel-head h2, .role-info h2 { margin: 0 0 6px; }
+  .panel-head p { margin: 0; color: #b9d8c5; line-height: 1.5; }
+  .user-table-wrap { overflow: auto; margin-top: 16px; border: 1px solid rgba(255,255,255,.16); border-radius: 18px; }
+  .user-table { width: 100%; min-width: 940px; border-collapse: collapse; }
+  .user-table th, .user-table td { text-align: left; padding: 13px; border-bottom: 1px solid rgba(255,255,255,.12); color: #b9d8c5; }
+  .user-table th { color: #d8ffe5; background: rgba(255,255,255,.06); }
+  .role-list { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 10px; margin-top: 12px; }
+  .role-item { border: 1px solid rgba(255,255,255,.16); background: rgba(255,255,255,.06); border-radius: 16px; padding: 12px; color: #b9d8c5; line-height: 1.45; }
+  .role-item strong { color: #f5fff8; display: block; margin-bottom: 4px; }
+  @media (max-width: 780px) {
+    .admin-form, .role-list { grid-template-columns: 1fr; }
+    .topbar, .panel-head { flex-direction: column; align-items: stretch; }
+  }
+</style>
+
+<script type="module">
+  import { initializeApp, getApps, getApp } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-app.js';
+  import {
+    getAuth,
+    signInWithEmailAndPassword,
+    signOut,
+    onAuthStateChanged,
+    createUserWithEmailAndPassword
+  } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-auth.js';
+  import {
+    getFirestore,
+    doc,
+    getDoc,
+    setDoc,
+    updateDoc,
+    collection,
+    getDocs,
+    serverTimestamp,
+    query,
+    orderBy
+  } from 'https://www.gstatic.com/firebasejs/10.12.5/firebase-firestore.js';
+
+  // Pakai config yang sudah ada di aplikasi utama jika sudah diset ke window.firebaseConfig.
+  // Jika belum, isi object di bawah ini dengan Firebase config proyek SID kamu.
+  const firebaseConfig = window.firebaseConfig || {
+    apiKey: 'ISI_API_KEY_FIREBASE_KAMU',
+    authDomain: 'ISI_AUTH_DOMAIN.firebaseapp.com',
+    projectId: 'ISI_PROJECT_ID',
+    storageBucket: 'ISI_STORAGE_BUCKET.appspot.com',
+    messagingSenderId: 'ISI_MESSAGING_SENDER_ID',
+    appId: 'ISI_APP_ID'
+  };
+
+  const app = getApps().length ? getApp() : initializeApp(firebaseConfig);
+  const auth = getAuth(app);
+  const db = getFirestore(app);
+
+  // Secondary app supaya Admin bisa membuat user baru tanpa logout dari akun admin yang sedang aktif.
+  const secondaryApp = initializeApp(firebaseConfig, 'secondary-user-creator');
+  const secondaryAuth = getAuth(secondaryApp);
+
+  const ROLE_ACCESS = {
+    admin: ['Kelola user', 'Kelola paket', 'Kelola role', 'Akses semua data', 'Kunci final sistem'],
+    ppk: ['Review paket', 'Approve CPCL', 'Approve RAB', 'Approve rekomendasi final'],
+    dinas_provinsi: ['Monitoring provinsi', 'Review progres kabupaten', 'Lihat rekap Aceh'],
+    dinas_kabupaten: ['Input CPCL', 'Validasi desa/poktan', 'Upload berita acara', 'Review lokasi kabupaten'],
+    konsultan_sid: ['Input survei', 'Input investigasi teknis', 'Desain', 'BOQ/RAB', 'Upload laporan SID'],
+    pelaksana: ['Lihat data final', 'Input progres fisik', 'Upload foto pekerjaan'],
+    pengawas: ['Review progres', 'Catatan pengawasan', 'Validasi deviasi lapangan'],
+    lingkungan: ['Screening lingkungan', 'Status AMDAL/UKL-UPL/SPPL', 'Kunci status lingkungan'],
+    viewer: ['Lihat dashboard', 'Lihat peta', 'Lihat rekap tanpa ubah data']
+  };
+
+  let currentProfile = null;
+
+  function roleLabel(role) {
+    const labels = {
+      admin: 'Admin',
+      ppk: 'PPK / Satker',
+      dinas_provinsi: 'Dinas Provinsi',
+      dinas_kabupaten: 'Dinas Kabupaten',
+      konsultan_sid: 'Konsultan SID',
+      pelaksana: 'Pelaksana Fisik',
+      pengawas: 'Pengawas',
+      lingkungan: 'Tim Lingkungan',
+      viewer: 'Viewer / Pimpinan'
+    };
+    return labels[role] || role;
+  }
+
+  function setAuthAlert(message, type = 'warning') {
+    const el = document.getElementById('authAlert');
+    if (!el) return;
+    el.textContent = message;
+    if (type === 'danger') {
+      el.style.background = 'rgba(255,92,92,.14)';
+      el.style.borderColor = 'rgba(255,92,92,.34)';
+      el.style.color = '#ffd0d0';
+    } else if (type === 'success') {
+      el.style.background = 'rgba(49,208,125,.12)';
+      el.style.borderColor = 'rgba(49,208,125,.34)';
+      el.style.color = '#d8ffe5';
+    } else {
+      el.style.background = 'rgba(255,209,92,.12)';
+      el.style.borderColor = 'rgba(255,209,92,.34)';
+      el.style.color = '#ffe6a3';
     }
-    *{box-sizing:border-box}html{scroll-behavior:smooth}body{margin:0;font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif;color:var(--text);background:radial-gradient(circle at 10% 8%,rgba(49,208,125,.22),transparent 27%),radial-gradient(circle at 90% 0%,rgba(89,216,255,.16),transparent 22%),linear-gradient(135deg,#04100b 0%,#07160f 42%,#102615 100%);overflow-x:hidden}a{color:inherit;text-decoration:none}.page{width:min(1240px,calc(100% - 32px));margin:0 auto}.nav{position:sticky;top:0;z-index:50;backdrop-filter:blur(18px);background:rgba(4,16,11,.80);border-bottom:1px solid var(--line)}.nav-inner{display:flex;align-items:center;justify-content:space-between;gap:16px;padding:13px 0}.brand{display:flex;align-items:center;gap:12px;min-width:230px}.brand-mark{width:42px;height:42px;border-radius:14px;background:linear-gradient(135deg,var(--green),var(--lime));color:#062010;display:grid;place-items:center;font-weight:950;box-shadow:0 12px 30px rgba(49,208,125,.28)}.brand strong{display:block;line-height:1.1;letter-spacing:-.03em}.brand small{color:var(--muted);font-size:12px}.nav-links{display:flex;align-items:center;gap:7px;flex-wrap:wrap;justify-content:flex-end}.nav-links a{color:var(--muted);font-size:12px;padding:9px 10px;border-radius:999px;border:1px solid transparent}.nav-links a:hover{color:var(--text);background:rgba(255,255,255,.08);border-color:var(--line)}.hero{padding:68px 0 42px}.hero-grid{display:grid;grid-template-columns:1.05fr .95fr;gap:28px;align-items:center}.badge-row{display:flex;flex-wrap:wrap;gap:10px;margin-bottom:18px}.badge{display:inline-flex;align-items:center;gap:8px;padding:9px 12px;border:1px solid var(--line);background:rgba(255,255,255,.07);border-radius:999px;color:var(--muted);font-size:13px}.dot{width:9px;height:9px;border-radius:50%;background:var(--green);box-shadow:0 0 20px var(--green)}h1{margin:0;font-size:clamp(40px,7vw,80px);line-height:.95;letter-spacing:-.07em}.hero p{max-width:700px;color:var(--muted);font-size:18px;line-height:1.7;margin:22px 0 0}.hero-actions{display:flex;flex-wrap:wrap;gap:12px;margin-top:28px}.btn{display:inline-flex;align-items:center;justify-content:center;gap:10px;min-height:46px;padding:13px 18px;border-radius:16px;border:1px solid var(--line);background:rgba(255,255,255,.08);color:var(--text);font-weight:850;cursor:pointer;transition:.2s ease}.btn.primary{background:linear-gradient(135deg,var(--green),var(--lime));color:#05210f;border-color:transparent;box-shadow:0 18px 35px rgba(49,208,125,.24)}.btn:hover{transform:translateY(-2px)}.panel,.card,.kpi{background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.055));border:1px solid var(--line);box-shadow:var(--shadow);border-radius:var(--radius)}.map-card{min-height:510px;padding:20px;position:relative;overflow:hidden}.map-top{display:flex;justify-content:space-between;gap:14px;align-items:flex-start;margin-bottom:18px}.map-title strong{display:block;font-size:18px}.map-title span{color:var(--muted);font-size:13px}.status-pill{padding:9px 11px;border-radius:999px;background:rgba(49,208,125,.14);border:1px solid rgba(49,208,125,.34);color:#caffdc;font-size:12px;font-weight:850;white-space:nowrap}#acehMap{width:100%;height:360px;border-radius:24px;overflow:hidden;border:1px solid rgba(255,255,255,.16);background:#0b2115}.leaflet-container{font-family:Inter,ui-sans-serif,system-ui,-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.map-note{margin-top:10px;color:var(--muted);font-size:12px;line-height:1.45}.map-note strong{color:#d8ffe5}.map-popup strong{font-size:15px}.map-popup span{display:block;margin-top:3px;color:#244031}.custom-marker{width:18px;height:18px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 6px rgba(255,255,255,.18),0 9px 22px rgba(0,0,0,.32)}.legend{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.legend-item{padding:12px;border-radius:16px;background:rgba(255,255,255,.07);border:1px solid var(--line);color:var(--muted);font-size:12px}.legend-item strong{display:block;color:var(--text);font-size:18px;margin-bottom:3px}section{padding:44px 0}.section-head{display:flex;align-items:end;justify-content:space-between;gap:20px;margin-bottom:20px}.section-head h2{margin:0;font-size:clamp(28px,4vw,46px);letter-spacing:-.05em}.section-head p{color:var(--muted);max-width:620px;line-height:1.6;margin:0}.kpi-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}.kpi{padding:20px}.kpi span{color:var(--muted);font-size:13px;display:block;margin-bottom:10px}.kpi strong{font-size:30px;letter-spacing:-.04em}.kpi em{display:block;color:var(--muted);font-size:12px;font-style:normal;margin-top:6px}.grid-2{display:grid;grid-template-columns:1fr 1fr;gap:16px}.grid-3{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}.grid-4{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.card{padding:22px}.card h3{margin:0 0 12px;letter-spacing:-.03em;font-size:22px}.card p,.card li{color:var(--muted);line-height:1.65;font-size:15px}.card ul{padding-left:19px;margin:10px 0 0}.zone{position:relative;overflow:hidden;min-height:250px}.zone:before{content:"";position:absolute;right:-50px;top:-50px;width:160px;height:160px;border-radius:50%;background:rgba(49,208,125,.14)}.zone-tag{display:inline-flex;padding:7px 10px;border-radius:999px;background:rgba(255,255,255,.08);border:1px solid var(--line);color:var(--muted);font-size:12px;margin-bottom:12px}.table-wrap{overflow:auto;border-radius:22px;border:1px solid var(--line);background:rgba(255,255,255,.06)}table{width:100%;border-collapse:collapse;min-width:980px}th,td{text-align:left;padding:14px 16px;border-bottom:1px solid rgba(255,255,255,.11);vertical-align:top;font-size:14px}th{position:sticky;top:0;background:rgba(8,28,17,.96);color:#d8ffe5;z-index:2}td{color:var(--muted)}td strong{color:var(--text)}.priority{display:inline-flex;align-items:center;justify-content:center;padding:6px 10px;border-radius:999px;font-size:12px;font-weight:900;white-space:nowrap}.p1{background:rgba(49,208,125,.16);color:#b8ffd2;border:1px solid rgba(49,208,125,.36)}.p2{background:rgba(255,209,92,.15);color:#ffe6a3;border:1px solid rgba(255,209,92,.34)}.p3{background:rgba(255,154,61,.14);color:#ffc99d;border:1px solid rgba(255,154,61,.34)}.p4{background:rgba(255,92,92,.13);color:#ffb5b5;border:1px solid rgba(255,92,92,.34)}.app-shell{display:grid;grid-template-columns:280px 1fr;gap:16px}.side{position:sticky;top:82px;align-self:start;padding:14px;border-radius:22px;background:rgba(255,255,255,.07);border:1px solid var(--line)}.side button{width:100%;text-align:left;margin:4px 0;padding:12px;border-radius:14px;border:1px solid transparent;background:transparent;color:var(--muted);cursor:pointer;font-weight:800}.side button.active,.side button:hover{background:rgba(49,208,125,.13);color:var(--text);border-color:rgba(49,208,125,.28)}.form-panel{display:none}.form-panel.active{display:block}.official-panel{display:none}.official-panel.active{display:block}.form-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:12px}.field{display:flex;flex-direction:column;gap:7px}.field.full{grid-column:1/-1}label{color:#d8ffe5;font-size:13px;font-weight:850}input,select,textarea{width:100%;border:1px solid rgba(255,255,255,.18);background:rgba(2,10,7,.42);color:var(--text);border-radius:14px;padding:12px 13px;outline:none;font:inherit}textarea{min-height:92px;resize:vertical}input::placeholder,textarea::placeholder{color:rgba(185,216,197,.56)}.result-box{margin-top:14px;padding:16px;border-radius:18px;background:rgba(49,208,125,.10);border:1px solid rgba(49,208,125,.26);color:#d8ffe5}.meter-wrap{display:grid;grid-template-columns:220px 1fr;gap:16px;align-items:center}.meter-circle{width:190px;height:190px;border-radius:50%;margin:auto;display:grid;place-items:center;background:conic-gradient(var(--green) 0 74%,rgba(255,255,255,.12) 74% 100%);position:relative}.meter-circle:before{content:"";width:136px;height:136px;border-radius:50%;background:#0b2115;position:absolute}.meter-circle strong{position:relative;font-size:42px;letter-spacing:-.05em}.flow{display:grid;gap:12px}.flow-step{display:grid;grid-template-columns:42px 1fr;gap:12px;align-items:start;padding:15px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid var(--line)}.num{width:42px;height:42px;border-radius:14px;display:grid;place-items:center;background:rgba(49,208,125,.16);color:#ccffdc;font-weight:900}.flow-step strong{display:block;margin-bottom:4px}.flow-step span{color:var(--muted);line-height:1.5;font-size:14px}.risk{padding:16px;border-radius:18px;background:rgba(255,255,255,.07);border:1px solid var(--line)}.risk strong{display:block;margin-bottom:7px}.risk span{color:var(--muted);font-size:13px;line-height:1.5}.doc-stage{padding:18px;border-radius:20px;background:rgba(255,255,255,.07);border:1px solid var(--line)}.doc-stage h4{margin:0 0 8px}.doc-stage p{margin:0;color:var(--muted);line-height:1.55;font-size:14px}.process-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px}.process-card{padding:16px;border-radius:20px;background:rgba(255,255,255,.075);border:1px solid var(--line);cursor:pointer;transition:.2s ease;position:relative;overflow:hidden}.process-card:hover,.process-card.active{transform:translateY(-2px);border-color:rgba(49,208,125,.44);background:rgba(49,208,125,.11)}.process-card.locked{opacity:.56}.process-card h3{font-size:18px;margin:0 0 8px}.process-card p{font-size:13px;margin:0 0 12px;color:var(--muted);line-height:1.45}.progress-bar{height:8px;border-radius:999px;background:rgba(255,255,255,.12);overflow:hidden}.progress-fill{height:100%;border-radius:999px;background:linear-gradient(90deg,var(--green),var(--lime));width:0%}.process-meta{display:flex;justify-content:space-between;gap:8px;align-items:center;margin-top:10px;color:var(--muted);font-size:12px}.process-detail{margin-top:16px;padding:22px;border-radius:24px;background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.055));border:1px solid var(--line);box-shadow:var(--shadow)}.process-detail-head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;margin-bottom:16px}.process-detail-head h3{margin:0;font-size:26px;letter-spacing:-.04em}.process-detail-head p{margin:8px 0 0;color:var(--muted);line-height:1.55}.status-chip{display:inline-flex;align-items:center;justify-content:center;padding:8px 12px;border-radius:999px;font-size:12px;font-weight:900;white-space:nowrap;background:rgba(255,209,92,.15);border:1px solid rgba(255,209,92,.34);color:#ffe6a3}.process-tabs{display:flex;flex-wrap:wrap;gap:8px;margin:12px 0 16px}.process-tabs button{border:1px solid var(--line);background:rgba(255,255,255,.07);color:var(--muted);border-radius:999px;padding:9px 12px;cursor:pointer;font-weight:850}.process-tabs button.active,.process-tabs button:hover{background:rgba(49,208,125,.15);color:var(--text);border-color:rgba(49,208,125,.36)}.detail-panel{display:none}.detail-panel.active{display:block}.checklist{display:grid;grid-template-columns:repeat(2,1fr);gap:10px}.check-item{padding:12px;border-radius:15px;background:rgba(255,255,255,.065);border:1px solid var(--line);color:var(--muted);font-size:14px}.check-item input{width:auto;margin-right:8px}.doc-list{display:grid;grid-template-columns:repeat(3,1fr);gap:10px}.doc-item{padding:13px;border-radius:16px;background:rgba(255,255,255,.065);border:1px solid var(--line);color:var(--muted);font-size:14px}.process-actions{display:flex;flex-wrap:wrap;gap:10px;margin-top:16px}.process-actions .btn[disabled]{opacity:.45;cursor:not-allowed;transform:none}.gate-warning{margin-top:12px;padding:13px;border-radius:16px;background:rgba(255,92,92,.12);border:1px solid rgba(255,92,92,.34);color:#ffd0d0;font-size:14px;line-height:1.55}@media(max-width:980px){.process-grid{grid-template-columns:repeat(2,1fr)}.checklist,.doc-list{grid-template-columns:1fr}}@media(max-width:620px){.process-grid{grid-template-columns:1fr}.process-detail-head{flex-direction:column}}.cta{margin:44px 0 70px;padding:34px;border-radius:32px;background:linear-gradient(135deg,rgba(49,208,125,.26),rgba(89,216,255,.12)),rgba(255,255,255,.08);border:1px solid rgba(255,255,255,.18);box-shadow:var(--shadow);display:grid;grid-template-columns:1fr auto;gap:18px;align-items:center}.cta h2{margin:0 0 10px;letter-spacing:-.05em;font-size:clamp(28px,4vw,48px)}.cta p{margin:0;color:var(--muted);line-height:1.65;max-width:780px}.footer{border-top:1px solid var(--line);color:var(--muted);padding:24px 0 34px;font-size:13px}.mobile-menu{display:none}@media(max-width:980px){.hero-grid,.grid-2,.app-shell,.cta,.meter-wrap{grid-template-columns:1fr}.kpi-grid{grid-template-columns:repeat(2,1fr)}.grid-3,.grid-4{grid-template-columns:1fr}.nav-links{display:none}.mobile-menu{display:inline-flex}.hero{padding-top:48px}.side{position:relative;top:0}.form-grid{grid-template-columns:1fr}}@media(max-width:620px){.page{width:min(100% - 22px,1240px)}.kpi-grid,.legend{grid-template-columns:1fr}.aceh-shape{height:210px}.hero p{font-size:16px}.section-head{align-items:start;flex-direction:column}.brand small{display:none}.cta{padding:24px}}
-  </style>
-</head>
-<body>
-<nav class="nav"><div class="page nav-inner"><a href="#top" class="brand"><div class="brand-mark">SID</div><div><strong>Cetak Sawah Aceh</strong><small>Sistem Interaktif • Lingkungan • RAB</small></div></a><div class="nav-links"><a href="#dashboard">Dashboard</a><a href="#zona">Zona</a><a href="#kabupaten">Kabupaten</a><a href="#aplikasi">Form SID</a><a href="#data-resmi">Data Resmi</a><a href="#tim-kerja">Tim Kerja</a><a href="#lingkungan">Lingkungan</a><a href="#alur">Alur</a><a href="#output">Output</a></div><a class="btn mobile-menu" href="#aplikasi">Mulai</a></div></nav>
-<main id="top">
-<header class="hero"><div class="page hero-grid"><div><div class="badge-row"><span class="badge"><span class="dot"></span> All New Concept</span><span class="badge">23 Kabupaten/Kota</span><span class="badge">SID + Dokumen Lingkungan</span></div><h1>Sistem Penilaian SID Cetak Sawah Provinsi Aceh</h1><p>Konsep aplikasi pemaparan dan pengolahan data untuk menilai calon lokasi cetak sawah di Aceh: CPCL, geospasial, survei lapangan, scoring kelayakan, desain teknis, RAB, dan proses dokumen lingkungan dalam satu alur kerja.</p><div class="hero-actions"><a href="#aplikasi" class="btn primary">Buka Form Interaktif</a><a href="#kabupaten" class="btn">Lihat Prioritas Aceh</a></div></div><div class="panel map-card"><div class="map-top"><div class="map-title"><strong>Peta Prioritas Awal</strong><span>Ilustrasi sebaran zona penilaian Aceh</span></div><div class="status-pill">Konsep Sistem</div></div><div id="acehMap" aria-label="Peta asli Provinsi Aceh"></div><div class="map-note"><strong>Mode peta asli:</strong> memakai OpenStreetMap. Jika file <code>aceh-kabupaten.geojson</code> tersedia di folder yang sama, batas 23 kabupaten/kota akan tampil berwarna. Jika belum tersedia, sistem otomatis menampilkan titik prioritas kabupaten/kota.</div><div class="legend"><div class="legend-item"><strong>Hijau</strong>Prioritas awal</div><div class="legend-item"><strong>Kuning</strong>Menengah/bersyarat</div><div class="legend-item"><strong>Oranye</strong>Selektif/terbatas</div></div></div></div></header>
-<section id="dashboard"><div class="page"><div class="section-head"><h2>Dashboard Pengolahan Data</h2><p>Dashboard memisahkan luas usulan, luas lolos geospasial, luas hasil survei, luas layak teknis, luas efektif desain, dan status lingkungan.</p></div><div class="kpi-grid"><div class="kpi"><span>Wilayah</span><strong>23</strong><em>Kabupaten/kota Aceh</em></div><div class="kpi"><span>Prioritas awal</span><strong>7</strong><em>Koridor timur-utara</em></div><div class="kpi"><span>Contoh rujukan</span><strong>304 ha</strong><em>Pidie hasil seleksi geospasial</em></div><div class="kpi"><span>Kerangka lingkungan</span><strong>AMDAL / UKL-UPL / SPPL</strong><em>Dipilih melalui screening kegiatan</em></div></div></div></section>
-<section id="zona"><div class="page"><div class="section-head"><h2>Pembagian Zona Kerja Lengkap</h2><p>Zona adalah pengelompokan karakter wilayah, bukan keputusan final. Keputusan final tetap berdasarkan CPCL, peta, survei, legalitas, air, dan dokumen lingkungan.</p></div><div class="grid-4"><div class="card zone"><span class="zone-tag">Zona A</span><h3>Pantai Timur & Utara</h3><p>Prioritas awal karena basis padi, akses, dan peluang sumber air lebih mendukung.</p><ul><li>Aceh Utara</li><li>Aceh Timur</li><li>Aceh Tamiang</li><li>Bireuen</li><li>Pidie</li><li>Pidie Jaya</li><li>Aceh Besar</li><li>Lhokseumawe</li><li>Langsa</li></ul></div><div class="card zone"><span class="zone-tag">Zona B</span><h3>Pantai Barat-Selatan</h3><p>Potensial, tetapi wajib disaring soal rawa, drainase, akses, pesisir, dan status lahan.</p><ul><li>Aceh Barat</li><li>Nagan Raya</li><li>Aceh Jaya</li><li>Aceh Selatan</li><li>Aceh Barat Daya</li><li>Subulussalam</li><li>Aceh Singkil</li><li>Simeulue</li></ul></div><div class="card zone"><span class="zone-tag">Zona C</span><h3>Tengah & Pegunungan</h3><p>Selektif. Hanya hamparan datar terbatas yang punya air dan akses yang bisa lanjut.</p><ul><li>Aceh Tengah</li><li>Bener Meriah</li><li>Gayo Lues</li><li>Aceh Tenggara</li></ul></div><div class="card zone"><span class="zone-tag">Zona D</span><h3>Kota / Urban</h3><p>Terbatas. Lebih cocok untuk perlindungan lahan pangan, optimasi, dan distribusi.</p><ul><li>Banda Aceh</li><li>Sabang</li></ul></div></div></div></section>
-<section id="kabupaten"><div class="page"><div class="section-head"><h2>Penilaian Awal 23 Kabupaten/Kota</h2><p>Tabel ini menjadi basis awal aplikasi. Nilai final dihasilkan dari form CPCL, geospasial, survei, desain, RAB, dan screening lingkungan.</p></div><div class="table-wrap"><table><thead><tr><th>No</th><th>Kabupaten/Kota</th><th>Zona</th><th>Prioritas</th><th>Fokus SID</th><th>Perhatian Lingkungan</th></tr></thead><tbody>
-<tr><td>1</td><td><strong>Pidie</strong></td><td>Timur/Utara</td><td><span class="priority p1">Sangat Prioritas</span></td><td>Validasi 304 ha, desain petakan, tata air, RAB per kecamatan.</td><td>Air, drainase, sosial CPCL, status lahan.</td></tr>
-<tr><td>2</td><td><strong>Aceh Utara</strong></td><td>Timur/Utara</td><td><span class="priority p1">Sangat Prioritas</span></td><td>Hamparan padi, integrasi OPLAH, jaringan air.</td><td>Banjir lokal, saluran eksisting, konflik lahan.</td></tr>
-<tr><td>3</td><td><strong>Aceh Timur</strong></td><td>Timur/Utara</td><td><span class="priority p1">Prioritas Tinggi</span></td><td>Seleksi CPCL, sumber air, akses alat berat.</td><td>Rawa/pesisir, status kawasan, banjir.</td></tr>
-<tr><td>4</td><td><strong>Bireuen</strong></td><td>Timur/Utara</td><td><span class="priority p1">Prioritas Tinggi</span></td><td>Perluasan terbatas, optimasi hamparan, saluran.</td><td>Ketersediaan air dan lahan sawah eksisting.</td></tr>
-<tr><td>5</td><td><strong>Pidie Jaya</strong></td><td>Timur/Utara</td><td><span class="priority p1">Prioritas Tinggi</span></td><td>Hamparan selektif sekitar koridor Pidie-Bireuen.</td><td>Drainase, akses, legalitas lahan.</td></tr>
-<tr><td>6</td><td><strong>Aceh Tamiang</strong></td><td>Timur/Utara</td><td><span class="priority p1">Prioritas Tinggi</span></td><td>Potensi dataran dan air, perlu filter banjir.</td><td>Banjir, kawasan, rawa/pesisir.</td></tr>
-<tr><td>7</td><td><strong>Aceh Besar</strong></td><td>Timur/Utara</td><td><span class="priority p2">Menengah-Tinggi</span></td><td>Lokasi selektif, tekanan urban, akses produksi.</td><td>Alih fungsi lahan, konflik ruang, sumber air.</td></tr>
-<tr><td>8</td><td><strong>Nagan Raya</strong></td><td>Barat-Selatan</td><td><span class="priority p2">Menengah-Tinggi</span></td><td>Hamparan potensial, desain drainase detail.</td><td>Rawa, gambut, tata air, akses alat.</td></tr>
-<tr><td>9</td><td><strong>Aceh Barat</strong></td><td>Barat-Selatan</td><td><span class="priority p2">Menengah</span></td><td>Seleksi lokasi rawa/pesisir/topografi.</td><td>Drainase, banjir, salinitas.</td></tr>
-<tr><td>10</td><td><strong>Aceh Barat Daya</strong></td><td>Barat-Selatan</td><td><span class="priority p2">Menengah</span></td><td>Lokasi datar tertentu, sumber air dan JUT.</td><td>Air, drainase, status lahan.</td></tr>
-<tr><td>11</td><td><strong>Aceh Selatan</strong></td><td>Barat-Selatan</td><td><span class="priority p3">Layak Bersyarat</span></td><td>Seleksi ketat topografi dan akses.</td><td>Lereng, erosi, akses alat berat.</td></tr>
-<tr><td>12</td><td><strong>Aceh Jaya</strong></td><td>Barat-Selatan</td><td><span class="priority p3">Layak Bersyarat</span></td><td>Hamparan terbatas, air, akses.</td><td>Topografi, pesisir, drainase.</td></tr>
-<tr><td>13</td><td><strong>Aceh Singkil</strong></td><td>Khusus</td><td><span class="priority p3">Layak Bersyarat</span></td><td>Kajian gambut/air sebelum desain.</td><td>Gambut, rawa, salinitas, kawasan.</td></tr>
-<tr><td>14</td><td><strong>Subulussalam</strong></td><td>Barat-Selatan</td><td><span class="priority p3">Layak Bersyarat</span></td><td>Screening kawasan, rawa, CPCL.</td><td>Kawasan, rawa, akses.</td></tr>
-<tr><td>15</td><td><strong>Aceh Tenggara</strong></td><td>Tengah</td><td><span class="priority p3">Layak Terbatas</span></td><td>Hamparan datar, air, akses.</td><td>Lereng, erosi, tata air.</td></tr>
-<tr><td>16</td><td><strong>Gayo Lues</strong></td><td>Tengah</td><td><span class="priority p3">Selektif</span></td><td>Lokasi sangat spesifik.</td><td>Topografi, erosi, konservasi.</td></tr>
-<tr><td>17</td><td><strong>Aceh Tengah</strong></td><td>Tengah</td><td><span class="priority p3">Selektif</span></td><td>Hamparan datar terbatas.</td><td>Lereng, kawasan, air.</td></tr>
-<tr><td>18</td><td><strong>Bener Meriah</strong></td><td>Tengah</td><td><span class="priority p3">Selektif</span></td><td>Seleksi terhadap komoditas eksisting.</td><td>Topografi, alih komoditas, air.</td></tr>
-<tr><td>19</td><td><strong>Simeulue</strong></td><td>Kepulauan</td><td><span class="priority p3">Selektif Khusus</span></td><td>Biaya logistik dan desain khusus.</td><td>Pesisir, akses, salinitas.</td></tr>
-<tr><td>20</td><td><strong>Kota Langsa</strong></td><td>Urban</td><td><span class="priority p4">Terbatas</span></td><td>Optimasi terbatas, bukan ekspansi besar.</td><td>Urban, tata ruang, lahan terbatas.</td></tr>
-<tr><td>21</td><td><strong>Lhokseumawe</strong></td><td>Urban</td><td><span class="priority p4">Terbatas</span></td><td>Bukan prioritas cetak sawah baru.</td><td>Industri/urban, ruang terbatas.</td></tr>
-<tr><td>22</td><td><strong>Banda Aceh</strong></td><td>Urban</td><td><span class="priority p4">Tidak Prioritas</span></td><td>Perlindungan lahan pangan dan distribusi.</td><td>Urban, tata ruang.</td></tr>
-<tr><td>23</td><td><strong>Sabang</strong></td><td>Kepulauan</td><td><span class="priority p4">Tidak Prioritas</span></td><td>Bukan sasaran utama cetak sawah baru.</td><td>Kepulauan, lahan terbatas, logistik.</td></tr>
-</tbody></table></div></div></section>
-<section id="aplikasi"><div class="page"><div class="section-head"><h2>SID Interaktif: Form dan Proses</h2><p>Bagian ini adalah konsep aplikasi. Setiap form saling terhubung dan menghasilkan status lokasi, desain, RAB, serta kebutuhan dokumen lingkungan.</p></div><div class="app-shell"><aside class="side"><button class="tabBtn active" data-tab="cpcl">1. Form CPCL</button><button class="tabBtn" data-tab="geo">2. Geospasial</button><button class="tabBtn" data-tab="survei">3. Survei Lapangan</button><button class="tabBtn" data-tab="teknis">4. Investigasi Teknis</button><button class="tabBtn" data-tab="desain">5. Desain & Volume</button><button class="tabBtn" data-tab="rab">6. RAB</button><button class="tabBtn" data-tab="final">7. Rekomendasi Final</button></aside><div>
-<div class="card form-panel active" id="cpcl"><h3>Form CPCL / Calon Lokasi</h3><div class="form-grid"><div class="field"><label>Kabupaten/Kota</label><select id="kabupatenSelect">
-                    <option value="">Memuat 23 kabupaten/kota Aceh...</option>
-                  </select></div><div class="field"><label>Kecamatan</label><select id="kecamatanSelect"></select></div><div class="field"><label>Gampong/Desa</label><select id="gampongSelect"></select></div><div class="field"><label>Kelompok Tani</label><input placeholder="Nama poktan/gapoktan" /></div><div class="field"><label>Luas Usulan per Hamparan (ha)</label><input id="luasUsulan" type="number" min="0" step="0.01" value="25" oninput="cekLuasMinimum()" /></div>
-<div class="field"><label>Standar Minimum Proses</label><input id="luasMinimumInfo" value="Minimal 5 ha dalam satu hamparan" readonly /></div><div class="field"><label>Status Lahan</label><select id="statusLahan"><option value="20">Jelas / clear</option><option value="10">Perlu dokumen tambahan</option><option value="0">Belum jelas / sengketa</option></select></div><div class="field full"><label>Catatan CPCL</label><textarea placeholder="Dokumen dukungan, nama ketua poktan, jumlah anggota, nomor kontak, dan catatan sosial."></textarea></div></div><div id="luasMinimumResult" class="result-box">Standar default: lokasi dapat diproses apabila berada dalam satu hamparan minimal 5 ha. Jika kurang dari 5 ha, sistem menolak otomatis dan tidak melanjutkan proses SID Cetak Sawah reguler.</div>
-<div class="result-box">Output: ID lokasi, status CPCL, kebutuhan dokumen pendukung, dan daftar kelengkapan survei.</div></div>
-<div class="card form-panel" id="geo"><h3>Form Screening Geospasial</h3><div class="form-grid"><div class="field"><label>Koordinat Polygon</label><input placeholder="Upload/input polygon KML/SHP/GeoJSON" /></div><div class="field"><label>Kemiringan Lahan</label><select id="kemiringan"><option value="15">0–3% datar</option><option value="10">3–8% landai</option><option value="5">8–15% bersyarat</option><option value="0">>15% tidak prioritas</option></select></div><div class="field"><label>Jarak Sumber Air</label><select id="air"><option value="20">< 500 meter</option><option value="14">500 m – 1,5 km</option><option value="7">1,5 – 3 km</option><option value="0">> 3 km / belum ada</option></select></div><div class="field"><label>Overlay Kawasan</label><select><option>Aman sementara</option><option>Perlu cek kawasan</option><option>Terindikasi masuk kawasan sensitif</option></select></div><div class="field full"><label>Catatan Geospasial</label><textarea placeholder="Catatan overlay kawasan hutan, HGU, konservasi, banjir, pesisir, dan akses jalan."></textarea></div></div><div class="result-box">Output: status lolos geospasial, luas terukur, luas gugur, dan titik yang harus diverifikasi lapangan.</div></div>
-<div class="card form-panel" id="survei"><h3>Form Survei Lapangan</h3><div class="form-grid"><div class="field"><label>Tanggal Survei</label><input type="date" /></div><div class="field"><label>Nama Surveyor</label><input placeholder="Nama petugas" /></div><div class="field"><label>Akses Alat Berat</label><select id="akses"><option value="10">Bisa masuk</option><option value="5">Perlu perbaikan akses</option><option value="0">Sulit/tidak bisa</option></select></div><div class="field"><label>Kondisi Vegetasi</label><select><option>Ringan</option><option>Sedang</option><option>Berat</option></select></div><div class="field"><label>Upload Foto Lokasi</label><input type="file" /></div><div class="field"><label>Upload Foto Sumber Air</label><input type="file" /></div><div class="field full"><label>Temuan Lapangan</label><textarea placeholder="Air, tanah, sosial, akses, risiko banjir, risiko konflik, dan catatan petani."></textarea></div></div><div class="result-box">Output: berita acara survei, foto geotag, status akses, dan rekomendasi surveyor.</div></div>
-<div class="card form-panel" id="teknis"><h3>Investigasi Teknis</h3><div class="form-grid"><div class="field"><label>Jenis Tanah</label><select><option>Mineral cocok padi</option><option>Masam perlu amelioran</option><option>Rawa/gambut perlu kajian</option><option>Berpasir/salinitas tinggi</option></select></div><div class="field"><label>Drainase</label><select id="drainase"><option value="8">Baik/dapat dikendalikan</option><option value="4">Perlu saluran pembuang</option><option value="0">Sulit dikendalikan</option></select></div><div class="field"><label>Dukungan Petani</label><select id="petani"><option value="5">Lengkap dan setuju</option><option value="3">Perlu penguatan dokumen</option><option value="0">Belum jelas</option></select></div><div class="field"><label>Risiko Lingkungan</label><select><option>Rendah</option><option>Sedang</option><option>Tinggi</option></select></div><div class="field full"><label>Rekomendasi Teknis</label><textarea placeholder="Kebutuhan saluran, tanggul, pintu air, pompa, JUT, leveling, atau kajian tambahan."></textarea></div></div><div class="result-box">Output: skor kelayakan teknis, daftar syarat, dan keputusan lanjut desain/tolak.</div></div>
-<div class="card form-panel" id="desain"><h3>Desain Teknis dan Volume</h3><div class="form-grid"><div class="field"><label>Luas Efektif Desain (ha)</label><input id="luasEfektif" type="number" min="5" step="0.01" value="20" /></div><div class="field"><label>Panjang Saluran Irigasi (m)</label><input id="saluran" type="number" value="1200" /></div><div class="field"><label>Panjang Drainase (m)</label><input id="drain" type="number" value="900" /></div><div class="field"><label>Jalan Usaha Tani (m)</label><input id="jut" type="number" value="600" /></div><div class="field"><label>Jumlah Pintu Air</label><input id="pintu" type="number" value="4" /></div><div class="field"><label>Kebutuhan Pompa</label><select><option>Tidak perlu</option><option>Perlu kajian pompa</option><option>Wajib pompa</option></select></div><div class="field full"><label>Catatan Desain</label><textarea placeholder="Layout petakan, titik intake, saluran, drainase, pintu air, JUT, dan bangunan pelengkap."></textarea></div></div><div class="result-box">Output: gambar layout, daftar volume, BOQ awal, dan catatan desain teknis.</div></div>
-<div class="card form-panel" id="rab"><h3>RAB Otomatis Konsep</h3><div class="form-grid"><div class="field"><label>Biaya Land Clearing / ha</label><input id="biayaLc" type="number" value="15000000" /></div><div class="field"><label>Biaya Land Leveling / ha</label><input id="biayaLv" type="number" value="12000000" /></div><div class="field"><label>Biaya Saluran / meter</label><input id="biayaSal" type="number" value="180000" /></div><div class="field"><label>Biaya JUT / meter</label><input id="biayaJut" type="number" value="350000" /></div></div><button class="btn primary" onclick="hitungRAB()" style="margin-top:14px">Hitung RAB Konsep</button><div id="rabResult" class="result-box">Output: rekap BOQ dan estimasi biaya akan tampil di sini.</div></div>
-<div class="card form-panel" id="final"><h3>Rekomendasi Final Lokasi</h3><div class="meter-wrap"><div class="meter-circle" id="scoreCircle"><strong id="scoreNum">74</strong></div><div><p>Skor lokasi dihitung dari legalitas, air, topografi, akses, drainase, dukungan petani, dan kesiapan desain. Sistem memberi status otomatis: layak, layak bersyarat, kajian ulang, atau tidak direkomendasikan.</p><button class="btn primary" onclick="hitungScore()">Hitung Skor Lokasi</button><div id="scoreText" class="result-box">Status: Layak bersyarat. Lengkapi legalitas, air, dan akses sebelum fisik.</div></div></div></div>
-</div></div></div></section>
-<section id="data-resmi"><div class="page"><div class="section-head"><h2>Data Resmi Paket</h2><p>Menu aktif untuk input data resmi paket: identitas paket, CPCL, polygon/koordinat, berita acara, KAK, Juknis, dan dokumen lingkungan. Data ini menjadi kunci validasi sebelum rekomendasi final.</p></div>
-<div class="app-shell"><aside class="side"><button class="officialTab active" data-official="paket">1. Identitas Paket</button><button class="officialTab" data-official="cpclOfficial">2. Input CPCL</button><button class="officialTab" data-official="polygonOfficial">3. Polygon / Koordinat</button><button class="officialTab" data-official="baOfficial">4. Berita Acara</button><button class="officialTab" data-official="kakOfficial">5. KAK & Juknis</button><button class="officialTab" data-official="envOfficial">6. Dokumen Lingkungan</button><button class="officialTab" data-official="validasiOfficial">7. Validasi Final</button></aside><div>
-<div class="card official-panel active" id="paket"><h3>Identitas Paket Resmi</h3><div class="form-grid"><div class="field"><label>Nama Paket</label><input id="paketNama" placeholder="Contoh: SID Cetak Sawah Provinsi Aceh TA 2025" oninput="updateOfficialValidation()" /></div><div class="field"><label>Kode Tender / Nomor Paket</label><input id="paketKode" placeholder="Kode tender / nomor paket" oninput="updateOfficialValidation()" /></div><div class="field"><label>Tahun Anggaran</label><input id="paketTahun" type="number" value="2025" oninput="updateOfficialValidation()" /></div><div class="field"><label>Instansi / Satker</label><input id="paketInstansi" placeholder="Nama instansi / satker" oninput="updateOfficialValidation()" /></div><div class="field"><label>PPK / Penanggung Jawab</label><input id="paketPpk" placeholder="Nama PPK / penanggung jawab" oninput="updateOfficialValidation()" /></div><div class="field"><label>Sumber Dana</label><select id="paketDana" onchange="updateOfficialValidation()"><option value="">Pilih</option><option>APBN</option><option>APBD</option><option>DAK</option><option>Lainnya</option></select></div><div class="field full"><label>Ruang Lingkup Paket</label><textarea id="paketScope" placeholder="Uraikan ruang lingkup: CPCL, survei, investigasi, desain, RAB, dokumen lingkungan, output laporan." oninput="updateOfficialValidation()"></textarea></div></div><div class="process-actions"><button class="btn primary" onclick="saveOfficialSection('paket')">Simpan Identitas Paket</button></div><div class="result-box" id="paketStatus">Status: belum lengkap.</div></div>
-<div class="card official-panel" id="cpclOfficial"><h3>Input CPCL Resmi</h3><div class="form-grid"><div class="field"><label>Kabupaten/Kota</label><select id="cpclKab"><option>Pidie</option><option>Aceh Utara</option><option>Aceh Timur</option><option>Bireuen</option><option>Pidie Jaya</option><option>Aceh Tamiang</option><option>Aceh Besar</option><option>Nagan Raya</option><option>Aceh Barat</option><option>Aceh Barat Daya</option><option>Aceh Selatan</option><option>Aceh Jaya</option><option>Aceh Singkil</option><option>Subulussalam</option><option>Aceh Tenggara</option><option>Gayo Lues</option><option>Aceh Tengah</option><option>Bener Meriah</option><option>Simeulue</option><option>Langsa</option><option>Lhokseumawe</option><option>Banda Aceh</option><option>Sabang</option></select></div><div class="field"><label>Kecamatan</label><input id="cpclKec" placeholder="Nama kecamatan" /></div><div class="field"><label>Gampong/Desa</label><input id="cpclGampong" placeholder="Nama gampong/desa" /></div><div class="field"><label>Kelompok Tani</label><input id="cpclPoktan" placeholder="Nama poktan/gapoktan" /></div><div class="field"><label>Ketua Poktan</label><input id="cpclKetua" placeholder="Nama ketua" /></div><div class="field"><label>Jumlah Petani</label><input id="cpclPetani" type="number" value="0" /></div><div class="field"><label>Luas Hamparan (ha)</label><input id="cpclLuas" type="number" min="0" step="0.01" value="5" oninput="previewCpclStatus()" /></div><div class="field"><label>Status Lahan</label><select id="cpclStatusLahan"><option value="clear">Clear and clean</option><option value="dokumen">Perlu dokumen tambahan</option><option value="sengketa">Belum jelas / sengketa</option></select></div><div class="field full"><label>Sumber Air Awal</label><textarea id="cpclAir" placeholder="Sungai, irigasi, rawa terkendali, embung, pompa, atau sumber air lain."></textarea></div><div class="field full"><label>Upload Daftar CPCL Excel/PDF</label><input id="cpclFile" type="file" accept=".xlsx,.xls,.csv,.pdf" /></div></div><div class="process-actions"><button class="btn" onclick="addCpclRow()">Tambah CPCL ke Daftar</button><button class="btn primary" onclick="saveOfficialSection('cpcl')">Simpan CPCL</button></div><div class="result-box" id="cpclPreview">Status luas: minimal 5 ha per hamparan.</div><div class="table-wrap" style="margin-top:14px"><table id="cpclTable"><thead><tr><th>No</th><th>Kabupaten</th><th>Kecamatan</th><th>Gampong</th><th>Poktan</th><th>Luas</th><th>Status</th></tr></thead><tbody></tbody></table></div></div>
-<div class="card official-panel" id="polygonOfficial"><h3>Polygon / Koordinat Lokasi</h3><div class="form-grid"><div class="field"><label>Upload Polygon</label><input id="polygonFile" type="file" accept=".geojson,.json,.kml,.zip,.shp" onchange="updateOfficialValidation()" /></div><div class="field"><label>Luas dari Polygon (ha)</label><input id="polygonLuas" type="number" step="0.01" placeholder="Isi jika sudah dihitung" oninput="updateOfficialValidation()" /></div><div class="field full"><label>Input Koordinat Manual</label><textarea id="polygonManual" placeholder="Contoh format: 5.123,95.456; 5.124,95.458; 5.120,95.459" oninput="updateOfficialValidation()"></textarea></div><div class="field full"><label>Catatan Overlay</label><textarea id="polygonOverlay" placeholder="Catatan kawasan hutan, HGU, konservasi, sempadan sungai, banjir, pesisir, akses jalan." oninput="updateOfficialValidation()"></textarea></div></div><div class="process-actions"><button class="btn" onclick="parseManualPolygon()">Cek Koordinat Manual</button><button class="btn primary" onclick="saveOfficialSection('polygon')">Simpan Polygon</button></div><div class="result-box" id="polygonStatus">Status: polygon belum diverifikasi.</div></div>
-<div class="card official-panel" id="baOfficial"><h3>Berita Acara Survei / Verifikasi</h3><div class="form-grid"><div class="field"><label>Nomor Berita Acara</label><input id="baNomor" placeholder="Nomor BA" oninput="updateOfficialValidation()" /></div><div class="field"><label>Tanggal BA</label><input id="baTanggal" type="date" onchange="updateOfficialValidation()" /></div><div class="field"><label>Tim Verifikasi</label><input id="baTim" placeholder="Dinas, surveyor, penyuluh, desa, poktan" oninput="updateOfficialValidation()" /></div><div class="field"><label>Upload BA</label><input id="baFile" type="file" accept=".pdf,.doc,.docx,.jpg,.png" onchange="updateOfficialValidation()" /></div><div class="field full"><label>Kesimpulan BA</label><textarea id="baKesimpulan" placeholder="Ringkasan hasil verifikasi lapangan dan catatan kelayakan." oninput="updateOfficialValidation()"></textarea></div></div><div class="process-actions"><button class="btn primary" onclick="saveOfficialSection('ba')">Simpan Berita Acara</button></div><div class="result-box" id="baStatus">Status: berita acara belum lengkap.</div></div>
-<div class="card official-panel" id="kakOfficial"><h3>KAK dan Juknis Paket</h3><div class="form-grid"><div class="field"><label>Upload KAK</label><input id="kakFile" type="file" accept=".pdf,.doc,.docx" onchange="updateOfficialValidation()" /></div><div class="field"><label>Upload Juknis / Pedoman Paket</label><input id="juknisFile" type="file" accept=".pdf,.doc,.docx" onchange="updateOfficialValidation()" /></div><div class="field"><label>Minimum Hamparan Menurut Paket (ha)</label><input id="kakMinHa" type="number" step="0.01" value="5" oninput="updateOfficialValidation()" /></div><div class="field"><label>Output Wajib Paket</label><select id="kakOutput" onchange="updateOfficialValidation()"><option>SID + RAB + Laporan Akhir</option><option>SID + DED + RAB + Lingkungan</option><option>Sesuai KAK terlampir</option></select></div><div class="field full"><label>Catatan Ketentuan Khusus KAK/Juknis</label><textarea id="kakCatatan" placeholder="Contoh: format laporan, jumlah hardcopy, tenaga ahli, metode survei, skala peta, dokumen lingkungan, output GIS." oninput="updateOfficialValidation()"></textarea></div></div><div class="process-actions"><button class="btn primary" onclick="saveOfficialSection('kak')">Simpan KAK/Juknis</button></div><div class="gate-warning"><strong>Aturan:</strong><br>Jika KAK/Juknis paket berbeda dari default aplikasi, sistem mengikuti KAK/Juknis paket.</div><div class="result-box" id="kakStatus">Status: KAK/Juknis belum lengkap.</div></div>
-<div class="card official-panel" id="envOfficial"><h3>Dokumen Lingkungan Resmi</h3><div class="form-grid"><div class="field"><label>Status Dokumen</label><select id="officialEnvStatus" onchange="updateOfficialValidation()"><option value="belum">Belum screening</option><option value="sppl">SPPL</option><option value="ukl">UKL-UPL</option><option value="amdal">AMDAL</option><option value="selesai">Dokumen/persetujuan selesai</option></select></div><div class="field"><label>Upload Dokumen Lingkungan</label><input id="officialEnvFile" type="file" accept=".pdf,.doc,.docx" onchange="updateOfficialValidation()" /></div><div class="field full"><label>Catatan Lingkungan Resmi</label><textarea id="officialEnvNote" placeholder="Catatan hasil screening, instansi lingkungan, nomor dokumen, status revisi, atau syarat mitigasi." oninput="updateOfficialValidation()"></textarea></div></div><div class="process-actions"><button class="btn primary" onclick="saveOfficialSection('env')">Simpan Dokumen Lingkungan</button></div><div class="result-box" id="officialEnvResult">Status: dokumen lingkungan belum dikunci.</div></div>
-<div class="card official-panel" id="validasiOfficial"><h3>Validasi Final Data Resmi</h3><div class="kpi-grid"><div class="kpi"><span>Identitas Paket</span><strong id="valPaket">0%</strong><em>Status paket</em></div><div class="kpi"><span>CPCL</span><strong id="valCpcl">0%</strong><em>Data calon lokasi</em></div><div class="kpi"><span>Polygon</span><strong id="valPolygon">0%</strong><em>Data spasial</em></div><div class="kpi"><span>BA + KAK + Lingkungan</span><strong id="valDocs">0%</strong><em>Dokumen kontrol</em></div></div><div id="officialFinalBox" class="result-box" style="margin-top:14px">Validasi belum dijalankan.</div><div class="process-actions"><button class="btn primary" onclick="updateOfficialValidation()">Jalankan Validasi</button><button class="btn" onclick="generateOfficialSummary()">Buat Ringkasan</button></div><div id="officialSummary" class="card" style="margin-top:14px;display:none"></div></div>
-</div></div></div></section>
-<section id="tim-kerja"><div class="page"><div class="section-head"><h2>Mode Kerja Tim Terpadu</h2><p>Modul ini membuat sistem bisa dipakai bersama oleh tim Kementan, dinas, konsultan SID, pelaksana fisik, pengawas, lingkungan, dan pengelola program tanpa saling tumpang tindih data.</p></div>
-<div class="grid-3"><div class="card"><h3>Role Pengguna</h3><ul><li><strong>Admin Nasional</strong>: konfigurasi provinsi, paket, pengguna, dan standar validasi.</li><li><strong>PPK / Satker</strong>: approve data paket, CPCL, BA, RAB, dan rekomendasi final.</li><li><strong>Dinas Provinsi</strong>: monitoring kabupaten, progres, dan rekap Aceh.</li><li><strong>Dinas Kabupaten</strong>: validasi CPCL, desa, poktan, dan berita acara.</li><li><strong>Konsultan SID</strong>: input survei, investigasi, desain, BOQ, dan laporan.</li><li><strong>Pelaksana Fisik</strong>: melihat data final yang sudah disetujui untuk pelaksanaan.</li><li><strong>Pengawas</strong>: memeriksa progres, foto, deviasi, dan catatan lapangan.</li><li><strong>Lingkungan</strong>: mengunci status AMDAL/UKL-UPL/SPPL dan mitigasi.</li></ul></div><div class="card"><h3>Workflow Approval</h3><ul><li>Draft CPCL dibuat oleh operator/kabupaten.</li><li>Dinas kabupaten memeriksa CPCL dan legalitas.</li><li>Konsultan SID melakukan geospasial dan survei.</li><li>Tim teknis mengisi investigasi, desain, BOQ, dan RAB.</li><li>Tim lingkungan mengisi status dokumen lingkungan.</li><li>PPK/Satker memberi persetujuan final.</li><li>Data final dikunci untuk pelaksanaan fisik.</li></ul></div><div class="card"><h3>Kontrol Dokumen</h3><ul><li>Setiap file punya status: draft, revisi, valid, disetujui, atau ditolak.</li><li>Dokumen final tidak bisa dihapus oleh operator biasa.</li><li>Perubahan data penting wajib meninggalkan alasan revisi.</li><li>Setiap rekomendasi final harus punya jejak CPCL, polygon, BA, KAK/Juknis, RAB, dan lingkungan.</li></ul></div></div>
-<div class="card" style="margin-top:16px"><h3>Matrix Hak Akses</h3><div class="table-wrap"><table><thead><tr><th>Role</th><th>Input</th><th>Review</th><th>Approve</th><th>Kunci Final</th></tr></thead><tbody><tr><td><strong>Admin Nasional</strong></td><td>Semua konfigurasi</td><td>Semua data</td><td>Terbatas sesuai mandat</td><td>Ya</td></tr><tr><td><strong>PPK / Satker</strong></td><td>Catatan paket</td><td>Semua dokumen paket</td><td>Ya</td><td>Ya</td></tr><tr><td><strong>Dinas Provinsi</strong></td><td>Rekap & catatan provinsi</td><td>Semua kabupaten</td><td>Review</td><td>Tidak</td></tr><tr><td><strong>Dinas Kabupaten</strong></td><td>CPCL, BA, validasi desa</td><td>Lokasi kabupaten</td><td>Review</td><td>Tidak</td></tr><tr><td><strong>Konsultan SID</strong></td><td>Survei, teknis, desain, BOQ</td><td>Data lokasi tugas</td><td>Tidak</td><td>Tidak</td></tr><tr><td><strong>Pelaksana Fisik</strong></td><td>Progres fisik</td><td>Data final disetujui</td><td>Tidak</td><td>Tidak</td></tr><tr><td><strong>Pengawas</strong></td><td>Catatan pengawasan</td><td>Progres dan dokumen</td><td>Review</td><td>Tidak</td></tr><tr><td><strong>Tim Lingkungan</strong></td><td>Status lingkungan</td><td>Dokumen lingkungan</td><td>Review lingkungan</td><td>Kunci lingkungan</td></tr></tbody></table></div></div>
-<div class="card" style="margin-top:16px"><h3>Manajemen Tugas Lapangan</h3><p>Form tugas dibuat melebar satu baris penuh agar enak dipakai oleh koordinator lapangan, dinas, konsultan SID, pengawas, dan pelaksana.</p><div class="form-grid"><div class="field"><label>Jenis Tugas</label><select><option>Survei CPCL</option><option>Verifikasi Polygon</option><option>Cek Sumber Air</option><option>Cek Legalitas</option><option>Foto Geotag</option><option>Revisi Desain</option><option>Review RAB</option><option>Review Lingkungan</option></select></div><div class="field"><label>Penanggung Jawab</label><input placeholder="Nama petugas/tim" /></div><div class="field"><label>Target Selesai</label><input type="date" /></div><div class="field"><label>Status</label><select><option>Belum mulai</option><option>Proses</option><option>Menunggu review</option><option>Selesai</option><option>Ditolak/Revisi</option></select></div><div class="field"><label>Kabupaten/Kota</label><select>
-<option>Aceh Barat</option>
-<option>Aceh Barat Daya</option>
-<option>Aceh Besar</option>
-<option>Aceh Jaya</option>
-<option>Aceh Selatan</option>
-<option>Aceh Singkil</option>
-<option>Aceh Tamiang</option>
-<option>Aceh Tengah</option>
-<option>Aceh Tenggara</option>
-<option>Aceh Timur</option>
-<option>Aceh Utara</option>
-<option>Banda Aceh</option>
-<option>Bener Meriah</option>
-<option>Bireuen</option>
-<option>Gayo Lues</option>
-<option>Langsa</option>
-<option>Lhokseumawe</option>
-<option>Nagan Raya</option>
-<option selected>Pidie</option>
-<option>Pidie Jaya</option>
-<option>Sabang</option>
-<option>Simeulue</option>
-<option>Subulussalam</option>
-</select></div><div class="field"><label>Prioritas Tugas</label><select><option>Normal</option><option>Penting</option><option>Mendesak</option><option>Kritis</option></select></div><div class="field full"><label>Catatan Tugas</label><textarea placeholder="Instruksi lapangan, titik lokasi, dokumen yang harus dibawa, target output, dan catatan koordinator."></textarea></div></div><div class="process-actions"><button class="btn primary">Tambah Tugas</button><button class="btn">Simpan Draft</button><button class="btn">Lihat Daftar Tugas</button></div><div class="result-box"><strong>Output:</strong> daftar tugas per lokasi, status petugas, bukti kerja, catatan revisi, dan riwayat penyelesaian tugas.</div></div>
-<div class="grid-3" style="margin-top:16px"><div class="card"><h3>Audit Trail</h3><p>Setiap perubahan penting dicatat: siapa mengubah, kapan, data sebelum, data sesudah, alasan revisi, dan dokumen pendukung. Ini penting agar data SID bisa dipertanggungjawabkan.</p></div><div class="card"><h3>Review Berjenjang</h3><p>Data tidak langsung final. CPCL, polygon, BA, desain, RAB, dan lingkungan melewati status draft → review → revisi → valid → disetujui.</p></div><div class="card"><h3>Dashboard Pimpinan</h3><p>Pimpinan cukup melihat peta, progres kabupaten, status dokumen, lokasi merah, total luas layak, total RAB, dan hambatan utama.</p></div></div></div></section>
-<section id="lingkungan"><div class="page"><div class="section-head"><h2>Dokumen Lingkungan dalam Sistem Proses</h2><p>Modul lingkungan digabungkan sebagai proses wajib sebelum rekomendasi final fisik. Sistem tidak menentukan hukum final, tetapi membantu screening awal kebutuhan AMDAL, UKL-UPL, atau SPPL.</p></div><div class="grid-3"><div class="doc-stage"><h4>1. Screening Jenis Dokumen</h4><p>Input skala luas, lokasi, kawasan, potensi dampak, rawa/gambut, salinitas, perubahan tata air, dan jarak ke kawasan sensitif.</p></div><div class="doc-stage"><h4>2. Pemeriksaan Risiko Lokasi</h4><p>Cek kawasan hutan/konservasi, HGU, sempadan sungai, pesisir, rawan banjir, gambut, habitat sensitif, dan konflik sosial.</p></div><div class="doc-stage"><h4>3. Matriks Dampak</h4><p>Identifikasi dampak land clearing, leveling, drainase, sedimentasi, perubahan aliran air, akses alat berat, debu, kebisingan, dan sosial.</p></div><div class="doc-stage"><h4>4. Rencana Pengelolaan</h4><p>Susun tindakan pengelolaan: pengendalian erosi, tata air, pengelolaan limbah, perlindungan sempadan, jam kerja alat berat, dan sosial.</p></div><div class="doc-stage"><h4>5. Rencana Pemantauan</h4><p>Tentukan indikator pantau: kualitas air, genangan, salinitas, pH tanah, sedimentasi, keluhan warga, progres vegetasi, dan fungsi saluran.</p></div><div class="doc-stage"><h4>6. Status Persetujuan</h4><p>Catat status: belum screening, perlu SPPL, perlu UKL-UPL, potensi AMDAL, dalam proses, selesai, revisi, atau tidak dapat dilanjutkan.</p></div></div><div class="card" style="margin-top:16px"><h3>Form Lingkungan Interaktif</h3><div class="form-grid"><div class="field"><label>Luas Kegiatan</label><select id="envLuas"><option value="sppl">< 5 ha / skala kecil</option><option value="ukl">5–100 ha / menengah</option><option value="amdal">> 100 ha / besar</option></select></div><div class="field"><label>Kawasan Sensitif</label><select id="envKawasan"><option value="rendah">Tidak terindikasi</option><option value="sedang">Dekat sungai/pesisir/rawan banjir</option><option value="tinggi">Terindikasi kawasan sensitif</option></select></div><div class="field"><label>Rawa/Gambut/Salinitas</label><select id="envRawa"><option value="rendah">Tidak dominan</option><option value="sedang">Ada sebagian</option><option value="tinggi">Dominan/perlu kajian khusus</option></select></div><div class="field"><label>Dampak Sosial</label><select id="envSosial"><option value="rendah">Dukungan kuat</option><option value="sedang">Perlu konsultasi</option><option value="tinggi">Potensi konflik</option></select></div><div class="field full"><label>Catatan Lingkungan</label><textarea placeholder="Catatan potensi dampak, kebutuhan konsultasi publik, pengelolaan air, pengendalian erosi, dan pemantauan."></textarea></div></div><button class="btn primary" onclick="cekLingkungan()" style="margin-top:14px">Cek Kebutuhan Dokumen</button><div id="envResult" class="result-box">Hasil screening dokumen lingkungan akan tampil di sini.</div></div></div></section>
-<section id="sistem-proses"><div class="page"><div class="section-head"><h2>Sistem Proses Interaktif</h2><p>Setiap kartu proses bisa diklik. User akan melihat detail tahapan, checklist wajib, dokumen upload, syarat lolos, output, dan tombol lanjut ke tahap berikutnya.</p></div><div class="process-grid" id="processGrid"></div><div class="process-detail" id="processDetail"><div class="process-detail-head"><div><h3 id="processTitle">Input CPCL</h3><p id="processDesc">Detail proses akan tampil di sini.</p></div><span class="status-chip" id="processStatus">Belum Lengkap</span></div><div class="process-tabs"><button class="processTab active" data-view="detail">Detail</button><button class="processTab" data-view="checklist">Checklist</button><button class="processTab" data-view="dokumen">Dokumen</button><button class="processTab" data-view="output">Output</button></div><div class="detail-panel active" id="detailView"></div><div class="detail-panel" id="checklistView"></div><div class="detail-panel" id="dokumenView"></div><div class="detail-panel" id="outputView"></div><div id="processGate"></div><div class="process-actions"><button class="btn" onclick="markProcessDone()">Tandai Selesai</button><button class="btn primary" id="nextProcessBtn" onclick="nextProcess()">Lanjut ke Tahap Berikutnya</button></div></div></div></section>
-<section id="alur"><div class="page"><div class="section-head"><h2>Alur Terpadu SID + Lingkungan</h2><p>Alur ini membuat proyek tidak loncat dari survei ke fisik. Semua keputusan melewati filter teknis, biaya, sosial, dan lingkungan.</p></div><div class="flow"><div class="flow-step"><div class="num">1</div><div><strong>Input CPCL</strong><span>Kabupaten, kecamatan, gampong, poktan, luas usulan, status lahan, dan dokumen dukungan.</span></div></div><div class="flow-step"><div class="num">2</div><div><strong>Screening Geospasial + Lingkungan Awal</strong><span>Overlay kawasan, sumber air, kemiringan, akses, rawa/gambut, pesisir, banjir, dan kawasan sensitif.</span></div></div><div class="flow-step"><div class="num">3</div><div><strong>Survei Lapangan Terpadu</strong><span>Surveyor mengambil data teknis sekaligus data risiko lingkungan dan sosial.</span></div></div><div class="flow-step"><div class="num">4</div><div><strong>Investigasi Teknis</strong><span>Tanah, air, drainase, tata air, topografi, akses alat berat, dan kebutuhan infrastruktur.</span></div></div><div class="flow-step"><div class="num">5</div><div><strong>Desain + Mitigasi Lingkungan</strong><span>Layout sawah, saluran, drainase, JUT, pintu air, plus rencana pengelolaan dan pemantauan lingkungan.</span></div></div><div class="flow-step"><div class="num">6</div><div><strong>BOQ, RAB, Dokumen Final</strong><span>Volume pekerjaan, estimasi biaya, status AMDAL/UKL-UPL/SPPL, berita acara, dan rekomendasi final.</span></div></div></div></div></section>
-<section><div class="page"><div class="section-head"><h2>Risiko yang Dikunci Sistem</h2><p>Lokasi yang terlihat luas belum tentu layak. Sistem harus memberi alarm merah sejak awal.</p></div><div class="grid-4"><div class="risk"><strong>Status Lahan</strong><span>Sengketa, kawasan, HGU, atau dokumen dukungan tidak lengkap.</span></div><div class="risk"><strong>Sumber Air</strong><span>Debit tidak cukup, jarak jauh, atau perlu pompa mahal.</span></div><div class="risk"><strong>Drainase</strong><span>Genangan, rawa dalam, salinitas, dan tata air buruk.</span></div><div class="risk"><strong>Akses Alat</strong><span>Mobilisasi sulit membuat biaya membengkak.</span></div><div class="risk"><strong>Topografi</strong><span>Kemiringan tinggi menyebabkan leveling mahal.</span></div><div class="risk"><strong>Tanah</strong><span>Gambut, tanah masam, atau salinitas butuh kajian.</span></div><div class="risk"><strong>Sosial CPCL</strong><span>Petani tidak jelas atau dukungan desa lemah.</span></div><div class="risk"><strong>Lingkungan</strong><span>AMDAL/UKL-UPL/SPPL belum jelas, potensi stop proses.</span></div></div></div></section>
-<section id="output"><div class="page"><div class="section-head"><h2>Output Lengkap Sistem</h2><p>Hasil akhir bukan hanya presentasi, tetapi dokumen kerja yang siap dipakai untuk verifikasi, perencanaan, dan pengendalian.</p></div><div class="grid-3"><div class="card"><h3>Dokumen SID</h3><ul><li>Database CPCL</li><li>Peta lokasi dan polygon</li><li>Laporan survei</li><li>Analisis kelayakan</li><li>Layout desain</li><li>Berita acara verifikasi</li></ul></div><div class="card"><h3>Dokumen Teknis & Biaya</h3><ul><li>Volume pekerjaan</li><li>BOQ</li><li>AHSP</li><li>RAB per lokasi</li><li>Rekap kabupaten</li><li>Rekap provinsi</li></ul></div><div class="card"><h3>Dokumen Lingkungan</h3><ul><li>Screening AMDAL/UKL-UPL/SPPL</li><li>Matriks dampak</li><li>Rencana pengelolaan</li><li>Rencana pemantauan</li><li>Status persetujuan lingkungan</li><li>Catatan revisi</li></ul></div></div><div class="cta"><div><h2>SID, desain, RAB, dan lingkungan dalam satu sistem.</h2><p>Konsep ini mengubah pemaparan cetak sawah Aceh menjadi aplikasi kerja: data masuk dari CPCL, diperiksa geospasial, disurvei, dinilai, didesain, dihitung RAB, lalu dikunci dengan proses lingkungan sebelum rekomendasi final.</p></div><a href="#top" class="btn primary">Kembali ke Atas</a></div></div></section>
-</main><footer class="footer"><div class="page">Konsep HTML netral — SID Cetak Sawah Aceh, form interaktif, penilaian teknis, RAB, dan proses dokumen lingkungan.</div></footer>
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-<script>
-const kabupatenMeta={
-  'Aceh Barat':{priority:'medium',focus:'Seleksi lokasi rawa/pesisir/topografi, drainase, dan sumber air.',env:'Drainase, banjir, salinitas.',lat:4.4543,lng:96.1527},
-  'Aceh Barat Daya':{priority:'medium',focus:'Lokasi datar tertentu, sumber air, dan jalan usaha tani.',env:'Air, drainase, status lahan.',lat:3.7392,lng:96.8241},
-  'Aceh Besar':{priority:'medium',focus:'Lokasi selektif, tekanan urban, akses produksi.',env:'Alih fungsi lahan, konflik ruang, sumber air.',lat:5.4529,lng:95.4778},
-  'Aceh Jaya':{priority:'low',focus:'Hamparan terbatas, air, dan akses alat berat.',env:'Topografi, pesisir, drainase.',lat:4.7874,lng:95.6458},
-  'Aceh Selatan':{priority:'low',focus:'Seleksi ketat topografi, akses, dan sumber air.',env:'Lereng, erosi, akses alat berat.',lat:3.3115,lng:97.3517},
-  'Aceh Singkil':{priority:'low',focus:'Kajian gambut dan tata air sebelum desain.',env:'Gambut, rawa, salinitas, kawasan.',lat:2.3589,lng:97.8722},
-  'Aceh Tamiang':{priority:'high',focus:'Potensi dataran dan air, perlu filter banjir dan legalitas.',env:'Banjir, kawasan, rawa/pesisir.',lat:4.2329,lng:98.0029},
-  'Aceh Tengah':{priority:'low',focus:'Hamparan datar terbatas, bukan ekspansi besar.',env:'Lereng, kawasan, air.',lat:4.6277,lng:96.8424},
-  'Aceh Tenggara':{priority:'low',focus:'Hamparan datar, air, dan akses.',env:'Lereng, erosi, tata air.',lat:3.3669,lng:97.6982},
-  'Aceh Timur':{priority:'high',focus:'Seleksi CPCL, sumber air, akses alat berat, dan jaringan air.',env:'Rawa/pesisir, status kawasan, banjir.',lat:4.6333,lng:97.6333},
-  'Aceh Utara':{priority:'high',focus:'Hamparan padi, integrasi OPLAH, dan jaringan air.',env:'Banjir lokal, saluran eksisting, konflik lahan.',lat:5.0707,lng:97.3195},
-  'Banda Aceh':{priority:'limited',focus:'Perlindungan lahan pangan dan sistem distribusi.',env:'Urban, tata ruang.',lat:5.5483,lng:95.3238},
-  'Bener Meriah':{priority:'low',focus:'Seleksi terhadap topografi dan komoditas eksisting.',env:'Topografi, alih komoditas, air.',lat:4.7748,lng:96.8614},
-  'Bireuen':{priority:'high',focus:'Perluasan terbatas, optimasi hamparan, dan saluran.',env:'Ketersediaan air dan lahan sawah eksisting.',lat:5.2030,lng:96.7009},
-  'Gayo Lues':{priority:'low',focus:'Lokasi sangat spesifik dengan air dan akses.',env:'Topografi, erosi, konservasi.',lat:3.9552,lng:97.3517},
-  'Langsa':{priority:'limited',focus:'Optimasi terbatas, bukan ekspansi besar.',env:'Urban, tata ruang, lahan terbatas.',lat:4.4683,lng:97.9683},
-  'Lhokseumawe':{priority:'limited',focus:'Bukan prioritas cetak sawah baru.',env:'Industri/urban, ruang terbatas.',lat:5.1801,lng:97.1507},
-  'Nagan Raya':{priority:'medium',focus:'Hamparan potensial, desain drainase detail.',env:'Rawa, gambut, tata air, akses alat.',lat:4.1678,lng:96.5861},
-  'Pidie':{priority:'high',focus:'Validasi 304 ha, desain petakan, tata air, dan RAB per kecamatan.',env:'Air, drainase, sosial CPCL, status lahan.',lat:5.3819,lng:95.9580},
-  'Pidie Jaya':{priority:'high',focus:'Hamparan selektif sekitar koridor Pidie-Bireuen.',env:'Drainase, akses, legalitas lahan.',lat:5.2667,lng:96.2167},
-  'Sabang':{priority:'limited',focus:'Bukan sasaran utama cetak sawah baru.',env:'Kepulauan, lahan terbatas, logistik.',lat:5.8947,lng:95.3193},
-  'Simeulue':{priority:'low',focus:'Biaya logistik dan desain khusus.',env:'Pesisir, akses, salinitas.',lat:2.5833,lng:96.0833},
-  'Subulussalam':{priority:'low',focus:'Screening kawasan, rawa, akses, dan CPCL.',env:'Kawasan, rawa, akses.',lat:2.6441,lng:98.0082}
-};
-function priorityLabel(p){return p==='high'?'Prioritas Tinggi':p==='medium'?'Prioritas Menengah':p==='limited'?'Terbatas / Tidak Prioritas':'Selektif / Bersyarat'}
-function priorityColor(p){return p==='high'?'#31d07d':p==='medium'?'#ffd15c':p==='limited'?'#ff5c5c':'#ff9a3d'}
-function cleanRegionName(raw){let n=String(raw||'').replaceAll('_',' ').trim();['KABUPATEN ','KAB. ','KOTA '].forEach(prefix=>{if(n.toUpperCase().startsWith(prefix))n=n.slice(prefix.length)});return n.toLowerCase().split(' ').filter(Boolean).map(w=>w.charAt(0).toUpperCase()+w.slice(1)).join(' ')}
-function getFeatureName(props){const keys=['name','Name','NAME','NAMOBJ','WADMKK','WADMPR','kabupaten','KABUPATEN','KAB_KOTA','kabkot','regency','Regency'];for(const k of keys){if(props&&props[k])return cleanRegionName(props[k])}return 'Wilayah Aceh'}
-function markerIcon(color){return L.divIcon({className:'',html:`<div class="custom-marker" style="background:${color}"></div>`,iconSize:[18,18],iconAnchor:[9,9]})}
-async function initAcehMap(){const el=document.getElementById('acehMap');if(!el||typeof L==='undefined')return;const map=L.map('acehMap',{zoomControl:true,scrollWheelZoom:true}).setView([4.55,96.75],7);L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png',{maxZoom:19,attribution:'&copy; OpenStreetMap contributors'}).addTo(map);let geoLoaded=false;try{const res=await fetch('aceh-kabupaten.geojson',{cache:'no-cache'});if(res.ok){const data=await res.json();const layer=L.geoJSON(data,{style:function(feature){const nama=getFeatureName(feature.properties);const meta=kabupatenMeta[nama]||{};return{color:'#ffffff',weight:1.2,fillColor:priorityColor(meta.priority||'low'),fillOpacity:.62}},onEachFeature:function(feature,layer){const nama=getFeatureName(feature.properties);const meta=kabupatenMeta[nama]||{priority:'low',focus:'Data belum dipetakan.',env:'Perlu verifikasi.'};layer.bindPopup(`<div class="map-popup"><strong>${nama}</strong><br>Status: ${priorityLabel(meta.priority)}<br>Fokus SID: ${meta.focus}<br>Lingkungan: ${meta.env}</div>`);layer.on('mouseover',()=>layer.setStyle({weight:2.4,fillOpacity:.78}));layer.on('mouseout',()=>layer.setStyle({weight:1.2,fillOpacity:.62}))}}).addTo(map);map.fitBounds(layer.getBounds(),{padding:[18,18]});geoLoaded=true}}catch(err){geoLoaded=false}if(!geoLoaded){const group=[];Object.entries(kabupatenMeta).forEach(([nama,meta])=>{const m=L.marker([meta.lat,meta.lng],{icon:markerIcon(priorityColor(meta.priority))}).addTo(map);m.bindPopup(`<div class="map-popup"><strong>${nama}</strong><br>Status: ${priorityLabel(meta.priority)}<br>Fokus SID: ${meta.focus}<br>Lingkungan: ${meta.env}</div>`);group.push(m)});map.fitBounds(L.featureGroup(group).getBounds(),{padding:[20,20]})}setTimeout(()=>map.invalidateSize(),350)}
+  }
 
-const WILAYAH_API = 'https://www.emsifa.com/api-wilayah-indonesia/api';
-const ACEH_PROVINCE_ID = '11';
+  function setBusy(btn, busy, textBusy = 'Memproses...') {
+    if (!btn) return;
+    if (busy) {
+      btn.dataset.oldText = btn.textContent;
+      btn.textContent = textBusy;
+      btn.disabled = true;
+    } else {
+      btn.textContent = btn.dataset.oldText || btn.textContent;
+      btn.disabled = false;
+    }
+  }
 
-function normalizeName(name){
-  let n = String(name || '').trim();
-  const prefixes = ['KABUPATEN ', 'KAB. ', 'KOTA '];
-  prefixes.forEach(prefix => {
-    if(n.toUpperCase().startsWith(prefix)) n = n.slice(prefix.length);
+  async function getUserProfile(uid) {
+    const snap = await getDoc(doc(db, 'users', uid));
+    if (!snap.exists()) return null;
+    return { uid, ...snap.data() };
+  }
+
+  async function loginSidUser() {
+    const btn = document.getElementById('loginBtn');
+    const email = document.getElementById('loginEmail').value.trim().toLowerCase();
+    const password = document.getElementById('loginPassword').value;
+
+    if (!email || !password) {
+      setAuthAlert('Email dan password wajib diisi.', 'danger');
+      return;
+    }
+
+    try {
+      setBusy(btn, true, 'Masuk...');
+      const cred = await signInWithEmailAndPassword(auth, email, password);
+      const profile = await getUserProfile(cred.user.uid);
+
+      if (!profile) {
+        await signOut(auth);
+        setAuthAlert('Akun Auth ditemukan, tetapi profil role belum ada di Firestore. Hubungi Admin.', 'danger');
+        return;
+      }
+      if (profile.status !== 'active') {
+        await signOut(auth);
+        setAuthAlert('Akun nonaktif. Hubungi Admin untuk aktivasi.', 'danger');
+        return;
+      }
+
+      currentProfile = profile;
+      enterApp(profile);
+    } catch (err) {
+      setAuthAlert('Login gagal: ' + readableFirebaseError(err), 'danger');
+    } finally {
+      setBusy(btn, false);
+    }
+  }
+
+  function enterApp(profile) {
+    document.getElementById('auth-screen').style.display = 'none';
+    const appShell = document.getElementById('app-shell');
+    appShell.className = 'app-shell-visible';
+    document.getElementById('currentUserName').textContent = profile.name || profile.email || '-';
+    document.getElementById('currentUserRole').textContent = roleLabel(profile.role) + ' • ' + (profile.kabupaten === 'all' ? 'Semua Aceh' : profile.kabupaten);
+    document.getElementById('adminPanelBtn').style.display = profile.role === 'admin' ? 'inline-flex' : 'none';
+    renderRoleAccess(profile.role);
+    if (profile.role === 'admin') renderUserTable();
+  }
+
+  function renderRoleAccess(role) {
+    const box = document.getElementById('roleAccessBox');
+    const list = ROLE_ACCESS[role] || [];
+    box.innerHTML = '<div class="role-list">' + list.map(item => `<div class="role-item"><strong>${item}</strong>Akses sesuai role aktif.</div>`).join('') + '</div>';
+  }
+
+  async function logoutSidUser() {
+    await signOut(auth);
+    location.reload();
+  }
+
+  function openAdminPanel() {
+    if (!currentProfile || currentProfile.role !== 'admin') {
+      alert('Hanya Admin yang bisa membuka Admin Panel.');
+      return;
+    }
+    document.getElementById('admin-panel').classList.remove('hidden');
+    renderUserTable();
+  }
+
+  function closeAdminPanel() {
+    document.getElementById('admin-panel').classList.add('hidden');
+  }
+
+  function resetUserForm() {
+    document.getElementById('newUserName').value = '';
+    document.getElementById('newUserEmail').value = '';
+    document.getElementById('newUserPassword').value = '';
+    document.getElementById('newUserRole').value = 'ppk';
+    document.getElementById('newUserKabupaten').value = 'all';
+    document.getElementById('newUserStatus').value = 'active';
+  }
+
+  async function createSidUserByAdmin() {
+    if (!currentProfile || currentProfile.role !== 'admin') {
+      alert('Hanya Admin yang bisa membuat user.');
+      return;
+    }
+
+    const btn = document.getElementById('createUserBtn');
+    const name = document.getElementById('newUserName').value.trim();
+    const email = document.getElementById('newUserEmail').value.trim().toLowerCase();
+    const password = document.getElementById('newUserPassword').value;
+    const role = document.getElementById('newUserRole').value;
+    const kabupaten = document.getElementById('newUserKabupaten').value;
+    const status = document.getElementById('newUserStatus').value;
+
+    if (!name || !email || !password) {
+      alert('Nama, email, dan password awal wajib diisi.');
+      return;
+    }
+    if (password.length < 6) {
+      alert('Password minimal 6 karakter.');
+      return;
+    }
+
+    try {
+      setBusy(btn, true, 'Membuat user...');
+      const cred = await createUserWithEmailAndPassword(secondaryAuth, email, password);
+      const uid = cred.user.uid;
+
+      await setDoc(doc(db, 'users', uid), {
+        uid,
+        name,
+        email,
+        role,
+        kabupaten,
+        status,
+        createdBy: currentProfile.uid,
+        createdByEmail: currentProfile.email,
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp()
+      });
+
+      await signOut(secondaryAuth);
+      resetUserForm();
+      await renderUserTable();
+      alert('User berhasil dibuat di Firebase Auth dan Firestore.');
+    } catch (err) {
+      alert('Gagal membuat user: ' + readableFirebaseError(err));
+    } finally {
+      setBusy(btn, false);
+    }
+  }
+
+  async function toggleUserStatus(uid, currentStatus) {
+    if (!currentProfile || currentProfile.role !== 'admin') return alert('Hanya Admin yang bisa mengubah status user.');
+    if (uid === currentProfile.uid && currentStatus === 'active') return alert('Admin yang sedang login tidak boleh menonaktifkan dirinya sendiri.');
+
+    const nextStatus = currentStatus === 'active' ? 'inactive' : 'active';
+    await updateDoc(doc(db, 'users', uid), {
+      status: nextStatus,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentProfile.uid
+    });
+    await renderUserTable();
+  }
+
+  async function changeUserRole(uid, role) {
+    if (!currentProfile || currentProfile.role !== 'admin') return alert('Hanya Admin yang bisa mengubah role user.');
+    if (uid === currentProfile.uid && role !== 'admin') return alert('Role admin yang sedang login tidak boleh diturunkan dari akunnya sendiri.');
+
+    await updateDoc(doc(db, 'users', uid), {
+      role,
+      updatedAt: serverTimestamp(),
+      updatedBy: currentProfile.uid
+    });
+    await renderUserTable();
+  }
+
+  async function renderUserTable() {
+    const body = document.getElementById('userTableBody');
+    if (!body) return;
+    body.innerHTML = '<tr><td colspan="7">Memuat user...</td></tr>';
+
+    const snap = await getDocs(query(collection(db, 'users'), orderBy('createdAt', 'desc')));
+    const rows = [];
+    snap.forEach(docSnap => rows.push({ id: docSnap.id, ...docSnap.data() }));
+
+    if (!rows.length) {
+      body.innerHTML = '<tr><td colspan="7">Belum ada user. Buat profil admin pertama di Firestore terlebih dahulu.</td></tr>';
+      return;
+    }
+
+    body.innerHTML = rows.map(u => `
+      <tr>
+        <td>${escapeHTML(u.name || '-')}</td>
+        <td>${escapeHTML(u.email || '-')}</td>
+        <td>
+          <select class="mini-select" data-role-uid="${u.uid}">
+            ${roleOptions(u.role)}
+          </select>
+        </td>
+        <td>${escapeHTML(u.kabupaten === 'all' ? 'Semua Aceh' : (u.kabupaten || '-'))}</td>
+        <td>${u.status === 'active' ? 'Aktif' : 'Nonaktif'}</td>
+        <td>${u.createdAt?.toDate ? u.createdAt.toDate().toLocaleDateString('id-ID') : '-'}</td>
+        <td>
+          <button class="auth-btn" data-toggle-uid="${u.uid}" data-status="${u.status || 'inactive'}">${u.status === 'active' ? 'Nonaktifkan' : 'Aktifkan'}</button>
+        </td>
+      </tr>
+    `).join('');
+
+    body.querySelectorAll('[data-toggle-uid]').forEach(btn => {
+      btn.addEventListener('click', () => toggleUserStatus(btn.dataset.toggleUid, btn.dataset.status));
+    });
+    body.querySelectorAll('[data-role-uid]').forEach(select => {
+      select.addEventListener('change', () => changeUserRole(select.dataset.roleUid, select.value));
+    });
+  }
+
+  function roleOptions(selected) {
+    const roles = ['admin','ppk','dinas_provinsi','dinas_kabupaten','konsultan_sid','pelaksana','pengawas','lingkungan','viewer'];
+    return roles.map(r => `<option value="${r}" ${selected === r ? 'selected' : ''}>${roleLabel(r)}</option>`).join('');
+  }
+
+  function escapeHTML(text) {
+    return String(text).replace(/[&<>'"]/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;',"'":'&#39;','"':'&quot;'}[ch]));
+  }
+
+  function readableFirebaseError(err) {
+    const code = err?.code || '';
+    const map = {
+      'auth/invalid-email': 'format email salah.',
+      'auth/user-not-found': 'user tidak ditemukan.',
+      'auth/wrong-password': 'password salah.',
+      'auth/invalid-credential': 'email atau password salah.',
+      'auth/email-already-in-use': 'email sudah digunakan.',
+      'auth/weak-password': 'password terlalu lemah, minimal 6 karakter.',
+      'permission-denied': 'izin Firestore ditolak. Cek Firestore Rules.',
+      'auth/network-request-failed': 'koneksi internet bermasalah.'
+    };
+    return map[code] || (err?.message || 'terjadi kesalahan tidak diketahui.');
+  }
+
+  onAuthStateChanged(auth, async user => {
+    if (!user) return;
+    try {
+      const profile = await getUserProfile(user.uid);
+      if (!profile || profile.status !== 'active') {
+        await signOut(auth);
+        setAuthAlert('Sesi ditolak. Profil user belum aktif atau belum dibuat oleh Admin.', 'danger');
+        return;
+      }
+      currentProfile = profile;
+      enterApp(profile);
+    } catch (err) {
+      await signOut(auth);
+      setAuthAlert('Gagal membaca profil user. Cek Firestore Rules.', 'danger');
+    }
   });
-  return n.toLowerCase().split(' ').filter(Boolean).map(part => part.charAt(0).toUpperCase() + part.slice(1)).join(' ');
-}
 
-async function fetchJSON(url){
-  const res = await fetch(url, { cache: 'force-cache' });
-  if(!res.ok) throw new Error('Gagal memuat data wilayah');
-  return res.json();
-}
+  document.getElementById('loginBtn').addEventListener('click', loginSidUser);
+  document.getElementById('logoutBtn').addEventListener('click', logoutSidUser);
+  document.getElementById('adminPanelBtn').addEventListener('click', openAdminPanel);
+  document.getElementById('closeAdminPanelBtn').addEventListener('click', closeAdminPanel);
+  document.getElementById('resetUserBtn').addEventListener('click', resetUserForm);
+  document.getElementById('createUserBtn').addEventListener('click', createSidUserByAdmin);
 
-async function initWilayah(){
-  const kab = document.getElementById('kabupatenSelect');
-  const kec = document.getElementById('kecamatanSelect');
-  const gam = document.getElementById('gampongSelect');
-  if(!kab || !kec || !gam) return;
-
-  const setLoading = (el, text) => el.innerHTML = `<option value="">${text}</option>`;
-  const setError = (el, text) => el.innerHTML = `<option value="">${text}</option>`;
-
-  async function loadKabupaten(){
-    try{
-      setLoading(kab, 'Memuat kabupaten/kota Aceh...');
-      setLoading(kec, 'Pilih kabupaten/kota dulu');
-      setLoading(gam, 'Pilih kecamatan dulu');
-      const data = await fetchJSON(`${WILAYAH_API}/regencies/${ACEH_PROVINCE_ID}.json`);
-      kab.innerHTML = '<option value="">Pilih Kabupaten/Kota</option>' + data
-        .map(item => `<option value="${item.id}">${normalizeName(item.name)}</option>`)
-        .join('');
-      const pidie = Array.from(kab.options).find(o => o.textContent.toLowerCase().includes('pidie') && !o.textContent.toLowerCase().includes('jaya'));
-      if(pidie){ kab.value = pidie.value; await loadKecamatan(); }
-    }catch(err){
-      setError(kab, 'Gagal memuat kabupaten/kota. Cek internet/API.');
-    }
-  }
-
-  async function loadKecamatan(){
-    if(!kab.value){ setLoading(kec, 'Pilih kabupaten/kota dulu'); setLoading(gam, 'Pilih kecamatan dulu'); return; }
-    try{
-      setLoading(kec, 'Memuat kecamatan...');
-      setLoading(gam, 'Pilih kecamatan dulu');
-      const data = await fetchJSON(`${WILAYAH_API}/districts/${kab.value}.json`);
-      kec.innerHTML = '<option value="">Pilih Kecamatan</option>' + data
-        .map(item => `<option value="${item.id}">${normalizeName(item.name)}</option>`)
-        .join('');
-    }catch(err){
-      setError(kec, 'Gagal memuat kecamatan.');
-    }
-  }
-
-  async function loadGampong(){
-    if(!kec.value){ setLoading(gam, 'Pilih kecamatan dulu'); return; }
-    try{
-      setLoading(gam, 'Memuat gampong/desa...');
-      const data = await fetchJSON(`${WILAYAH_API}/villages/${kec.value}.json`);
-      gam.innerHTML = '<option value="">Pilih Gampong/Desa</option>' + data
-        .map(item => `<option value="${item.id}">${normalizeName(item.name)}</option>`)
-        .join('');
-    }catch(err){
-      setError(gam, 'Gagal memuat gampong/desa.');
-    }
-  }
-
-  kab.addEventListener('change', loadKecamatan);
-  kec.addEventListener('change', loadGampong);
-  await loadKabupaten();
-}
-
-const tabs=document.querySelectorAll('.tabBtn'),panels=document.querySelectorAll('.form-panel');tabs.forEach(btn=>btn.addEventListener('click',()=>{tabs.forEach(b=>b.classList.remove('active'));panels.forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.tab).classList.add('active')}));
-function rupiah(n){return new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(n||0)}
-function cekLuasMinimum(){
-  const el=document.getElementById('luasUsulan');
-  const box=document.getElementById('luasMinimumResult');
-  if(!el||!box)return;
-  const luas=Number(el.value||0);
-  if(luas>=5){
-    box.innerHTML='<strong>Status luas: LOLOS SYARAT MINIMUM HAMPARAN.</strong><br>Luas usulan '+luas+' ha dapat masuk proses CPCL/SID, dengan catatan tetap wajib lolos legalitas, sumber air, topografi, akses, dan lingkungan.';
-    box.style.borderColor='rgba(49,208,125,.35)';
-    box.style.background='rgba(49,208,125,.10)';
-  }else{
-    box.innerHTML='<strong>Status luas: DITOLAK SISTEM.</strong><br>Luas usulan '+luas+' ha berada di bawah ketentuan minimal 5 ha dalam satu hamparan, sehingga tidak dapat dilanjutkan sebagai usulan SID Cetak Sawah reguler. Gabungkan dengan hamparan berdekatan atau ubah status menjadi usulan lain/non-cetak sawah.';
-    box.style.borderColor='rgba(255,92,92,.52)';
-    box.style.background='rgba(255,92,92,.16)';
-  }
-}
-
-function hitungRAB(){let luas=+document.getElementById('luasEfektif').value||0,sal=+document.getElementById('saluran').value||0,dr=+document.getElementById('drain').value||0,jut=+document.getElementById('jut').value||0,lc=+document.getElementById('biayaLc').value||0,lv=+document.getElementById('biayaLv').value||0,bs=+document.getElementById('biayaSal').value||0,bj=+document.getElementById('biayaJut').value||0;let total=(luas*lc)+(luas*lv)+((sal+dr)*bs)+(jut*bj);document.getElementById('rabResult').innerHTML='<strong>Estimasi RAB konsep: '+rupiah(total)+'</strong><br>Komponen: land clearing, land leveling, saluran irigasi/drainase, dan jalan usaha tani. Angka ini simulasi awal dan harus diganti AHSP kabupaten.'}
-function hitungScore(){let legal=+document.getElementById('statusLahan').value||0,air=+document.getElementById('air').value||0,topo=+document.getElementById('kemiringan').value||0,akses=+document.getElementById('akses').value||0,dr=+document.getElementById('drainase').value||0,pet=+document.getElementById('petani').value||0;let score=Math.min(100,Math.round(legal+air+topo+akses+dr+pet+22));let status=score>=80?'Layak masuk desain dan RAB':score>=65?'Layak bersyarat, perlu melengkapi catatan teknis/legal':score>=50?'Perlu kajian ulang sebelum desain':'Tidak direkomendasikan';document.getElementById('scoreNum').textContent=score;document.getElementById('scoreCircle').style.background='conic-gradient(var(--green) 0 '+score+'%, rgba(255,255,255,.12) '+score+'% 100%)';document.getElementById('scoreText').innerHTML='<strong>Status: '+status+'</strong><br>Skor dihitung dari legalitas, air, topografi, akses, drainase, dan dukungan petani.'}
-function cekLingkungan(){let luas=document.getElementById('envLuas').value,kawasan=document.getElementById('envKawasan').value,rawa=document.getElementById('envRawa').value,sosial=document.getElementById('envSosial').value;let res='SPPL / screening sederhana';if(luas==='amdal'||kawasan==='tinggi'||rawa==='tinggi'||sosial==='tinggi')res='Potensi AMDAL atau kajian lingkungan mendalam';else if(luas==='ukl'||kawasan==='sedang'||rawa==='sedang'||sosial==='sedang')res='Potensi UKL-UPL';document.getElementById('envResult').innerHTML='<strong>Hasil awal: '+res+'</strong><br>Keputusan final harus mengikuti daftar wajib AMDAL/UKL-UPL/SPPL, kewenangan instansi lingkungan, dan hasil verifikasi lokasi.'}
-
-const processSteps=[
-{id:'cpcl',title:'1. Input CPCL',short:'Data calon petani dan calon lokasi.',status:'Belum Lengkap',progress:35,desc:'Tahap awal untuk mencatat calon lokasi, calon petani, luas hamparan, status lahan, dan bukti dukungan awal.',detail:['Pilih kabupaten/kota, kecamatan, dan gampong/desa.','Isi nama kelompok tani, ketua, jumlah petani, luas hamparan, dan status lahan.','Sistem langsung menolak jika luas satu hamparan kurang dari 5 ha.','Data CPCL menjadi dasar seluruh proses geospasial, survei, desain, dan RAB.'],check:['Kabupaten/kota dipilih','Kecamatan dipilih','Gampong/desa dipilih','Nama poktan/gapoktan diisi','Luas hamparan minimal 5 ha','Status lahan teridentifikasi','Sumber air awal dicatat','Kontak ketua/petani tersedia'],docs:['Surat dukungan gampong/desa','Surat pernyataan poktan','Daftar calon petani','Sketsa lokasi awal','Foto lokasi awal'],output:['ID lokasi CPCL','Status minimum hamparan','Daftar kekurangan dokumen','Keputusan lanjut ke geospasial']},
-{id:'geo',title:'2. Screening Geospasial',short:'Cek peta, polygon, kawasan, dan akses.',status:'Terkunci',progress:0,desc:'Tahap untuk memastikan lokasi tidak bermasalah secara peta dan memiliki peluang teknis sebelum surveyor turun detail.',detail:['Upload atau input polygon lokasi.','Cek overlay kawasan hutan, konservasi, HGU, pesisir, sungai, dan rawan banjir.','Cek kemiringan, jarak sumber air, akses jalan, dan hamparan efektif.','Lokasi bermasalah diberi status merah sebelum masuk biaya survei besar.'],check:['Polygon/titik lokasi tersedia','Luas terukur muncul','Overlay kawasan dicek','Kemiringan lahan dicek','Jarak sumber air dihitung','Akses jalan terlihat','Risiko banjir/pesisir dicatat','Status lolos geospasial dibuat'],docs:['File KML/SHP/GeoJSON','Peta lokasi','Screenshot overlay kawasan','Peta akses jalan','Catatan geospasial'],output:['Luas terukur','Luas gugur','Luas layak survei','Status lolos/tidak lolos geospasial']},
-{id:'survei',title:'3. Survei Lapangan',short:'Foto, koordinat, akses, air, dan sosial.',status:'Terkunci',progress:0,desc:'Tahap verifikasi fisik di lapangan untuk membuktikan kondisi nyata lokasi dan kesesuaian dengan data peta.',detail:['Ambil koordinat batas lokasi dan titik penting.','Dokumentasikan foto/video lokasi, sumber air, akses alat berat, dan kondisi vegetasi.','Wawancara petani, aparat gampong, penyuluh, dan pemilik lahan.','Catat risiko banjir, konflik, kekeringan, salinitas, dan genangan.'],check:['Tanggal survei diisi','Nama surveyor diisi','Foto lokasi tersedia','Foto sumber air tersedia','Koordinat lapangan tersedia','Akses alat berat dinilai','Kondisi sosial dicatat','Berita acara survei dibuat'],docs:['Foto geotag lokasi','Foto sumber air','Video lokasi','Berita acara survei','Daftar hadir/verifikasi lapangan'],output:['Status survei lapangan','Temuan surveyor','Catatan risiko','Rekomendasi awal lapangan']},
-{id:'teknis',title:'4. Investigasi Teknis',short:'Tanah, air, drainase, topografi, dan risiko.',status:'Terkunci',progress:0,desc:'Tahap analisis kelayakan teknis untuk menentukan apakah lokasi layak masuk desain cetak sawah.',detail:['Analisis sumber air, debit, jarak, elevasi, dan sistem distribusi.','Analisis tanah, pH, salinitas, gambut/ rawa, dan daya dukung alat.','Analisis topografi, kebutuhan land leveling, drainase, dan bangunan air.','Buat skor kelayakan teknis dan syarat perbaikan.'],check:['Jenis tanah diidentifikasi','Sumber air dianalisis','Drainase dinilai','Topografi dinilai','Akses alat berat final','Dukungan petani final','Risiko lingkungan teknis dicatat','Skor kelayakan dihitung'],docs:['Form investigasi tanah','Catatan sumber air','Catatan drainase','Foto titik teknis','Matriks risiko teknis'],output:['Skor kelayakan teknis','Status layak/bersyarat/tolak','Syarat teknis','Rekomendasi lanjut desain']},
-{id:'desain',title:'5. Desain & Volume',short:'Layout sawah, saluran, JUT, dan bangunan air.',status:'Terkunci',progress:0,desc:'Tahap menyusun desain teknis dan menghitung volume pekerjaan berdasarkan lokasi yang lolos investigasi.',detail:['Tentukan luas efektif desain minimal 5 ha.','Susun layout petakan, pematang, saluran irigasi, drainase, dan jalan usaha tani.','Tentukan kebutuhan pintu air, gorong-gorong, pompa, dan pipa bila diperlukan.','Hitung volume pekerjaan untuk masuk ke BOQ dan RAB.'],check:['Luas efektif desain diisi','Layout petakan tersedia','Panjang saluran dihitung','Panjang drainase dihitung','JUT dihitung','Bangunan air dihitung','Pompa/pipa dinilai','Volume pekerjaan lengkap'],docs:['Gambar layout','Sketsa saluran','Sketsa JUT','Detail bangunan air','Tabel volume'],output:['Layout desain','Volume pekerjaan','BOQ awal','Catatan desain final']},
-{id:'rab',title:'6. BOQ & RAB',short:'Harga satuan, rekap biaya, dan estimasi fisik.',status:'Terkunci',progress:0,desc:'Tahap menghitung biaya pekerjaan berdasarkan volume, AHSP, harga satuan wilayah, dan kebutuhan fisik.',detail:['Input biaya land clearing dan land leveling.','Input biaya saluran, drainase, JUT, bangunan air, pompa, dan pipa.','Sistem menghitung RAB konsep per lokasi.','RAB final wajib memakai AHSP dan harga satuan kabupaten yang berlaku.'],check:['Volume final tersedia','Harga satuan diisi','AHSP dipilih','Biaya mobilisasi dihitung','Biaya bangunan air dihitung','Pajak/overhead dicatat','Rekap lokasi dibuat','Rekap kabupaten siap'],docs:['BOQ','AHSP','RAB lokasi','Rekap kabupaten','Daftar harga satuan'],output:['RAB lokasi','Rekap kabupaten','Estimasi biaya per ha','Catatan efisiensi biaya']},
-{id:'env',title:'7. Dokumen Lingkungan',short:'AMDAL / UKL-UPL / SPPL dan mitigasi.',status:'Terkunci',progress:0,desc:'Tahap screening dan pencatatan kebutuhan dokumen lingkungan sebelum rekomendasi final diterbitkan.',detail:['Screening skala kegiatan dan potensi dampak.','Cek kawasan sensitif, rawa/gambut, pesisir, sungai, banjir, dan salinitas.','Susun matriks dampak, rencana pengelolaan, dan rencana pemantauan.','Catat status persetujuan lingkungan atau kebutuhan revisi.'],check:['Skala luas lingkungan dipilih','Kawasan sensitif dicek','Rawa/gambut/salinitas dicek','Dampak sosial dicek','Matriks dampak dibuat','Rencana pengelolaan dibuat','Rencana pemantauan dibuat','Status dokumen lingkungan dicatat'],docs:['Form screening lingkungan','Matriks dampak','RKL-RPL / UKL-UPL / SPPL','Catatan konsultasi','Status persetujuan lingkungan'],output:['Status AMDAL/UKL-UPL/SPPL','Daftar mitigasi','Rencana pemantauan','Kunci lanjut final']},
-{id:'final',title:'8. Rekomendasi Final',short:'Layak, bersyarat, revisi, atau ditolak.',status:'Terkunci',progress:0,desc:'Tahap akhir untuk menggabungkan hasil CPCL, geospasial, survei, teknis, desain, RAB, dan lingkungan.',detail:['Sistem membaca status semua tahap.','Jika ada tahap wajib belum selesai, rekomendasi final dikunci.','Jika luas hamparan kurang dari 5 ha, status tetap ditolak.','Output final menjadi dasar keputusan lanjut fisik atau koreksi usulan.'],check:['CPCL selesai','Geospasial selesai','Survei selesai','Teknis selesai','Desain selesai','RAB selesai','Lingkungan selesai','Berita acara final siap'],docs:['Laporan SID','Rekap scoring','Rekap RAB','Lampiran foto/peta','Berita acara rekomendasi final'],output:['Layak','Layak bersyarat','Perlu revisi','Ditolak']}
-];
-let activeProcess=0;
-const completedProcesses=new Set();
-function renderProcessCards(){const grid=document.getElementById('processGrid');if(!grid)return;grid.innerHTML=processSteps.map((s,i)=>{const unlocked=i===0||completedProcesses.has(processSteps[i-1].id);const done=completedProcesses.has(s.id);const p=done?100:(unlocked?s.progress:0);const st=done?'Selesai':(unlocked?s.status:'Terkunci');return `<div class="process-card ${i===activeProcess?'active':''} ${!unlocked?'locked':''}" onclick="openProcess(${i})"><h3>${s.title}</h3><p>${s.short}</p><div class="progress-bar"><div class="progress-fill" style="width:${p}%"></div></div><div class="process-meta"><span>${st}</span><span>${p}%</span></div></div>`}).join('')}
-function listHTML(items,type){if(type==='check')return `<div class="checklist">${items.map((x,i)=>`<label class="check-item"><input type="checkbox">${x}</label>`).join('')}</div>`;if(type==='doc')return `<div class="doc-list">${items.map(x=>`<div class="doc-item">${x}</div>`).join('')}</div>`;return `<ul>${items.map(x=>`<li>${x}</li>`).join('')}</ul>`}
-function renderProcessDetail(){const s=processSteps[activeProcess],prevOk=activeProcess===0||completedProcesses.has(processSteps[activeProcess-1].id),done=completedProcesses.has(s.id);document.getElementById('processTitle').textContent=s.title;document.getElementById('processDesc').textContent=s.desc;document.getElementById('processStatus').textContent=done?'Selesai':(prevOk?s.status:'Terkunci');document.getElementById('detailView').innerHTML='<h3>Yang Dikerjakan</h3>'+listHTML(s.detail);document.getElementById('checklistView').innerHTML='<h3>Checklist Wajib</h3>'+listHTML(s.check,'check');document.getElementById('dokumenView').innerHTML='<h3>Dokumen yang Harus Dilengkapi / Upload</h3>'+listHTML(s.docs,'doc');document.getElementById('outputView').innerHTML='<h3>Output Tahap Ini</h3>'+listHTML(s.output);const gate=document.getElementById('processGate');const nextBtn=document.getElementById('nextProcessBtn');if(!prevOk){gate.innerHTML='<div class="gate-warning"><strong>Tahap masih terkunci.</strong><br>Selesaikan tahap sebelumnya terlebih dahulu agar proses ini bisa dibuka.</div>';nextBtn.disabled=true}else{gate.innerHTML=activeProcess===0?'<div class="gate-warning"><strong>Catatan sistem:</strong><br>Jika luas hamparan kurang dari 5 ha, sistem menolak otomatis dan tidak bisa lanjut ke tahap berikutnya.</div>':'';nextBtn.disabled=false}nextBtn.textContent=activeProcess>=processSteps.length-1?'Selesai':'Lanjut ke Tahap Berikutnya'}
-function openProcess(i){const prevOk=i===0||completedProcesses.has(processSteps[i-1].id);activeProcess=i;renderProcessCards();renderProcessDetail();document.getElementById('processDetail')?.scrollIntoView({behavior:'smooth',block:'nearest'})}
-function markProcessDone(){const luas=Number(document.getElementById('luasUsulan')?.value||0);if(activeProcess===0&&luas<5){document.getElementById('processGate').innerHTML='<div class="gate-warning"><strong>DITOLAK SISTEM.</strong><br>Luas satu hamparan kurang dari 5 ha, sehingga tahap CPCL tidak bisa ditandai selesai untuk SID Cetak Sawah reguler.</div>';return}completedProcesses.add(processSteps[activeProcess].id);renderProcessCards();renderProcessDetail()}
-function nextProcess(){markProcessDone();if(completedProcesses.has(processSteps[activeProcess].id)&&activeProcess<processSteps.length-1){activeProcess++;renderProcessCards();renderProcessDetail()}}
-function initProcessSystem(){renderProcessCards();renderProcessDetail();document.querySelectorAll('.processTab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.processTab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.detail-panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.view+'View').classList.add('active')}))}
-
-const officialState={saved:{},cpcl:[]};
-function officialValue(id){return document.getElementById(id)?.value?.trim()||''}
-function officialFile(id){return document.getElementById(id)?.files?.length>0}
-function officialPct(checks){const ok=checks.filter(Boolean).length;return Math.round((ok/checks.length)*100)}
-function setOfficialStatus(id,html,good=false){const el=document.getElementById(id);if(!el)return;el.innerHTML=html;el.style.borderColor=good?'rgba(49,208,125,.35)':'rgba(255,209,92,.34)';el.style.background=good?'rgba(49,208,125,.10)':'rgba(255,209,92,.10)'}
-function previewCpclStatus(){const luas=Number(officialValue('cpclLuas')||0);const min=Number(officialValue('kakMinHa')||5);const box=document.getElementById('cpclPreview');if(!box)return;if(luas>=min){box.innerHTML='<strong>Status CPCL: lolos minimum hamparan.</strong><br>Luas '+luas+' ha memenuhi batas minimum '+min+' ha. Tetap wajib cek legalitas, air, polygon, dan lingkungan.';box.style.borderColor='rgba(49,208,125,.35)';box.style.background='rgba(49,208,125,.10)'}else{box.innerHTML='<strong>Status CPCL: DITOLAK SISTEM.</strong><br>Luas '+luas+' ha kurang dari minimum '+min+' ha per hamparan. Tidak bisa lanjut sebagai usulan cetak sawah reguler.';box.style.borderColor='rgba(255,92,92,.52)';box.style.background='rgba(255,92,92,.16)'}}
-function addCpclRow(){const luas=Number(officialValue('cpclLuas')||0);const min=Number(officialValue('kakMinHa')||5);const item={kab:officialValue('cpclKab'),kec:officialValue('cpclKec'),gampong:officialValue('cpclGampong'),poktan:officialValue('cpclPoktan'),luas,status:luas>=min?'Lolos minimum':'Ditolak < minimum'};officialState.cpcl.push(item);const tbody=document.querySelector('#cpclTable tbody');if(tbody){tbody.innerHTML=officialState.cpcl.map((r,i)=>`<tr><td>${i+1}</td><td><strong>${r.kab}</strong></td><td>${r.kec||'-'}</td><td>${r.gampong||'-'}</td><td>${r.poktan||'-'}</td><td>${r.luas} ha</td><td>${r.status}</td></tr>`).join('')}previewCpclStatus();updateOfficialValidation()}
-function parseManualPolygon(){const txt=officialValue('polygonManual');const coords=txt.split(';').map(x=>x.trim()).filter(Boolean);const valid=coords.filter(c=>c.includes(',')).length;const box=document.getElementById('polygonStatus');if(valid>=3){setOfficialStatus('polygonStatus',`<strong>Koordinat manual terbaca: ${valid} titik.</strong><br>Minimal polygon sederhana terpenuhi. Untuk resmi tetap disarankan upload GeoJSON/KML/SHP.`,true)}else{setOfficialStatus('polygonStatus','<strong>Koordinat belum cukup.</strong><br>Masukkan minimal 3 titik koordinat dengan format lat,lng; lat,lng; lat,lng.')}}
-function saveOfficialSection(section){officialState.saved[section]=true;updateOfficialValidation();const map={paket:'paketStatus',cpcl:'cpclPreview',polygon:'polygonStatus',ba:'baStatus',kak:'kakStatus',env:'officialEnvResult'};if(map[section])setOfficialStatus(map[section],'<strong>Data disimpan sementara.</strong><br>Data sudah masuk ke validasi sistem. Untuk produksi, data ini perlu disimpan ke database.',true)}
-function updateOfficialValidation(){previewCpclStatus();const paket=officialPct([officialValue('paketNama'),officialValue('paketKode'),officialValue('paketTahun'),officialValue('paketInstansi'),officialValue('paketPpk'),officialValue('paketDana'),officialValue('paketScope')]);const cpclRows=officialState.cpcl.length>0;const cpclFile=officialFile('cpclFile');const cpcl=officialPct([cpclRows||cpclFile,officialValue('cpclKab'),officialValue('cpclKec')||cpclFile,officialValue('cpclGampong')||cpclFile,officialValue('cpclPoktan')||cpclFile,Number(officialValue('cpclLuas')||0)>=Number(officialValue('kakMinHa')||5)]);const polygon=officialPct([officialFile('polygonFile')||officialValue('polygonManual'),officialValue('polygonLuas')||officialValue('polygonManual'),officialValue('polygonOverlay')]);const docs=officialPct([officialValue('baNomor'),officialValue('baTanggal'),officialValue('baTim'),officialFile('baFile'),officialFile('kakFile'),officialFile('juknisFile')||officialValue('kakCatatan'),officialValue('officialEnvStatus')!=='belum']);const setTxt=(id,val)=>{const el=document.getElementById(id);if(el)el.textContent=val+'%'};setTxt('valPaket',paket);setTxt('valCpcl',cpcl);setTxt('valPolygon',polygon);setTxt('valDocs',docs);setOfficialStatus('paketStatus',paket>=80?'<strong>Identitas paket cukup lengkap.</strong>':'<strong>Identitas paket belum lengkap.</strong>',paket>=80);setOfficialStatus('baStatus',docs>=45?'<strong>Berita acara/dokumen mulai lengkap.</strong>':'<strong>Berita acara belum lengkap.</strong>',docs>=45);setOfficialStatus('kakStatus',officialFile('kakFile')||officialFile('juknisFile')?'<strong>KAK/Juknis sudah diunggah.</strong>':'<strong>KAK/Juknis belum diunggah.</strong>',officialFile('kakFile')||officialFile('juknisFile'));setOfficialStatus('officialEnvResult',officialValue('officialEnvStatus')!=='belum'?'<strong>Status lingkungan sudah dipilih.</strong><br>'+officialValue('officialEnvStatus').toUpperCase():'<strong>Dokumen lingkungan belum dikunci.</strong>',officialValue('officialEnvStatus')!=='belum');const avg=Math.round((paket+cpcl+polygon+docs)/4);const final=document.getElementById('officialFinalBox');if(final){if(avg>=80){final.innerHTML='<strong>Validasi data resmi: SIAP DIPAKAI SEBAGAI DATA KERJA.</strong><br>Dokumen utama sudah cukup. Rekomendasi final tetap menunggu pemeriksaan pejabat/instansi berwenang.';final.style.borderColor='rgba(49,208,125,.35)';final.style.background='rgba(49,208,125,.10)'}else if(avg>=50){final.innerHTML='<strong>Validasi data resmi: BELUM FINAL.</strong><br>Beberapa data penting masih kurang. Lengkapi CPCL, polygon, berita acara, KAK/Juknis, dan status lingkungan.';final.style.borderColor='rgba(255,209,92,.34)';final.style.background='rgba(255,209,92,.10)'}else{final.innerHTML='<strong>Validasi data resmi: BELUM LAYAK FINAL.</strong><br>Data resmi masih minim. Sistem tidak boleh menerbitkan rekomendasi final.';final.style.borderColor='rgba(255,92,92,.45)';final.style.background='rgba(255,92,92,.13)'}}}
-function generateOfficialSummary(){updateOfficialValidation();const box=document.getElementById('officialSummary');if(!box)return;box.style.display='block';box.innerHTML=`<h3>Ringkasan Data Resmi Paket</h3><p><strong>Nama Paket:</strong> ${officialValue('paketNama')||'-'}<br><strong>Kode:</strong> ${officialValue('paketKode')||'-'}<br><strong>Tahun:</strong> ${officialValue('paketTahun')||'-'}<br><strong>Instansi:</strong> ${officialValue('paketInstansi')||'-'}<br><strong>Jumlah CPCL input:</strong> ${officialState.cpcl.length} lokasi<br><strong>Minimum hamparan:</strong> ${officialValue('kakMinHa')||5} ha<br><strong>Status lingkungan:</strong> ${officialValue('officialEnvStatus')||'belum'}<br><br>Catatan: ringkasan ini adalah hasil input sistem dan tetap perlu diverifikasi dengan dokumen resmi fisik/digital.</p>`}
-function initOfficialDataMenu(){document.querySelectorAll('.officialTab').forEach(btn=>btn.addEventListener('click',()=>{document.querySelectorAll('.officialTab').forEach(b=>b.classList.remove('active'));document.querySelectorAll('.official-panel').forEach(p=>p.classList.remove('active'));btn.classList.add('active');document.getElementById(btn.dataset.official).classList.add('active')}));updateOfficialValidation()}
- 
-document.querySelectorAll('a[href^="#"]').forEach(a=>a.addEventListener('click',e=>{const t=document.querySelector(a.getAttribute('href'));if(t){e.preventDefault();t.scrollIntoView({behavior:'smooth',block:'start'})}}));
-initWilayah();
-initAcehMap();
-cekLuasMinimum();
-initProcessSystem();
-initOfficialDataMenu();
+  window.sidAuth = {
+    auth,
+    db,
+    getCurrentProfile: () => currentProfile,
+    renderUserTable
+  };
 </script>
-</body>
-</html>
+
+<!-- FIRESTORE RULES CONTOH
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+    function myProfile() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid)).data;
+    }
+    function isActive() {
+      return signedIn() && myProfile().status == 'active';
+    }
+    function isAdmin() {
+      return isActive() && myProfile().role == 'admin';
+    }
+
+    match /users/{uid} {
+      allow read: if isActive();
+      allow create, update: if isAdmin();
+      allow delete: if false;
+    }
+
+    match /{document=**} {
+      allow read: if isActive();
+      allow write: if isAdmin();
+    }
+  }
+}
+-->
